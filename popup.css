@@ -81,7 +81,7 @@ body {
 
 .quick-rail {
   position: fixed;
-  left: 10px;
+  right: 10px;
   top: 50%;
   transform: translateY(-50%);
   z-index: 50;
@@ -103,7 +103,32 @@ body {
   cursor: pointer;
   box-shadow: var(--shadow);
   padding: 0;
+  position: relative;
   transition: transform 180ms ease, opacity 180ms ease, background 160ms ease;
+}
+
+
+.quick-rail-btn::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  right: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  background: rgba(17, 19, 23, 0.92);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  padding: 7px 9px;
+  border-radius: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.quick-rail-btn:hover::after,
+.quick-rail-btn:focus-visible::after {
+  opacity: 1;
 }
 
 .quick-rail-btn .icon {
@@ -127,7 +152,7 @@ body {
 
 .quick-rail .quick-rail-btn:not(.rail-primary-btn) {
   opacity: 0;
-  transform: translateX(-14px) scale(0.88);
+  transform: translateX(14px) scale(0.88);
   pointer-events: none;
 }
 

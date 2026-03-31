@@ -31,6 +31,22 @@ For current version `1.2.2`, the package is:
 release/GEOCopilot-chrome-v1.2.2.zip
 ```
 
+### GitHub Auto Release (Tag Trigger)
+This repository includes GitHub Actions automation to package and publish release artifacts.
+
+- Trigger: push tag `v<version>` (example: `v1.2.2`)
+- Validation: tag version must match `manifest.json` version
+- Output: release asset `release/GEOCopilot-chrome-v<version>.zip` uploaded to GitHub Releases
+- Guardrail: release commit must be on `main` branch
+- Notes: auto-generate release notes from commit history (relative to previous semver tag)
+
+Example commands:
+
+```bash
+git tag v1.2.2
+git push origin v1.2.2
+```
+
 ### Install in Chrome (Local Test)
 1. Open `chrome://extensions`
 2. Enable **Developer mode**
@@ -77,6 +93,22 @@ release/GEOCopilot-chrome-v<version>.zip
 
 ```text
 release/GEOCopilot-chrome-v1.2.2.zip
+```
+
+### GitHub 自动发布（Tag 触发）
+本仓库已集成 GitHub Actions，可自动打包并发布 Release 产物。
+
+- 触发方式：推送 `v<version>` 标签（例如：`v1.2.2`）
+- 校验规则：标签版本必须与 `manifest.json` 中版本一致
+- 产物结果：自动上传 `release/GEOCopilot-chrome-v<version>.zip` 到 GitHub Releases
+- 保护规则：仅允许 `main` 分支上的提交发版
+- 发布说明：基于提交历史自动生成（相对上一个 semver 标签）
+
+示例命令：
+
+```bash
+git tag v1.2.2
+git push origin v1.2.2
 ```
 
 ### Chrome 本地安装（调试）

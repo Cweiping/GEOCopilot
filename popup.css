@@ -71,27 +71,64 @@ body {
 
 .icon-btn {
   margin-top: 0;
-  border-radius: 8px;
-  padding: 6px 8px;
+  border-radius: 50%;
   display: inline-grid;
-  align-items: center;
-  justify-content: center;
+  place-items: center;
+  border: 1px solid transparent;
 }
 
 .quick-action {
-  min-width: 64px;
-  min-height: 44px;
-  gap: 2px;
+  position: relative;
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
+  min-height: 56px;
+  padding: 0;
+  background: #e6e6e6;
+  color: #4d4d4d;
+}
+
+.quick-action:hover {
+  background: #dedede;
 }
 
 .quick-action .icon {
-  font-size: 16px;
-  line-height: 1;
+  width: 30px;
+  height: 30px;
+  fill: currentColor;
 }
 
-.action-label {
-  font-size: 10px;
-  line-height: 1.1;
+.quick-action::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 8px);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  background: rgba(23, 28, 39, 0.92);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  padding: 8px 10px;
+  border-radius: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+  z-index: 20;
+}
+
+.quick-action:hover::after,
+.quick-action:focus-visible::after {
+  opacity: 1;
+}
+
+:root[data-theme='dark'] .quick-action {
+  background: #2a303d;
+  color: #d4d9e4;
+}
+
+:root[data-theme='dark'] .quick-action:hover {
+  background: #323949;
 }
 
 .subtitle {
@@ -288,9 +325,6 @@ button.secondary { background: var(--secondary); }
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .quick-action {
-    min-width: 56px;
-  }
 
   .strategy-item {
     grid-template-columns: 1fr;

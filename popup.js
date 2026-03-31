@@ -105,8 +105,6 @@ const I18N = {
     strategiesSaved: '匹配策略已保存',
     quickExportTip: '导出配置',
     quickImportTip: '导入配置',
-    quickExportLabel: '导出',
-    quickImportLabel: '导入',
     configExported: '配置与策略已导出',
     configImported: '配置与策略已导入',
     configImportFail: m => `配置导入失败：${m}`,
@@ -139,8 +137,6 @@ const I18N = {
     strategiesSaved: 'Matching strategies saved',
     quickExportTip: 'Export config',
     quickImportTip: 'Import config',
-    quickExportLabel: 'Export',
-    quickImportLabel: 'Import',
     configExported: 'Config and strategies exported',
     configImported: 'Config and strategies imported',
     configImportFail: m => `Config import failed: ${m}`,
@@ -182,12 +178,10 @@ function applyI18n() {
   document.getElementById('strategyTitle').textContent = t('strategyTitle');
   document.getElementById('addStrategyBtn').textContent = t('addStrategyBtn');
   document.getElementById('saveStrategiesBtn').textContent = t('saveStrategiesBtn');
-  document.getElementById('quickExportBtn').title = t('quickExportTip');
   document.getElementById('quickExportBtn').setAttribute('aria-label', t('quickExportTip'));
-  document.getElementById('quickExportLabel').textContent = t('quickExportLabel');
-  document.getElementById('quickImportBtn').title = t('quickImportTip');
+  document.getElementById('quickExportBtn').setAttribute('data-tooltip', t('quickExportTip'));
   document.getElementById('quickImportBtn').setAttribute('aria-label', t('quickImportTip'));
-  document.getElementById('quickImportLabel').textContent = t('quickImportLabel');
+  document.getElementById('quickImportBtn').setAttribute('data-tooltip', t('quickImportTip'));
   document.getElementById('manualFillBtn').textContent = t('manualFillBtn');
   document.getElementById('refreshFieldsBtn').textContent = t('refreshFieldsBtn');
   document.getElementById('autoFillOnLoadLabel').textContent = t('autoFillSetting');

@@ -37,6 +37,7 @@
 html, body {
   width: 100%;
   min-width: 0;
+  overflow: hidden;
 }
 
 body {
@@ -49,7 +50,7 @@ body {
 .app {
   width: min(100vw, 100%);
   max-width: 100%;
-  min-height: 100vh;
+  min-height: 0;
   box-sizing: border-box;
   padding: 14px;
   display: flex;
@@ -74,6 +75,64 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.quick-rail {
+  position: fixed;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.quick-rail-btn {
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-elevated) 82%, var(--surface-soft) 18%);
+  color: var(--brand);
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  padding: 0;
+  transition: transform 180ms ease, opacity 180ms ease, background 160ms ease;
+}
+
+.quick-rail-btn .icon {
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+}
+
+.quick-rail-btn:hover {
+  background: color-mix(in srgb, var(--surface-elevated) 70%, var(--brand-soft) 30%);
+}
+
+.quick-rail-btn.is-active {
+  background: linear-gradient(160deg, var(--brand), var(--brand-pressed));
+  color: #fff;
+}
+
+.rail-link-btn {
+  text-decoration: none;
+}
+
+.quick-rail .quick-rail-btn:not(.rail-primary-btn) {
+  opacity: 0;
+  transform: translateX(-14px) scale(0.88);
+  pointer-events: none;
+}
+
+.quick-rail.is-expanded .quick-rail-btn:not(.rail-primary-btn) {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+  pointer-events: auto;
 }
 
 .icon-btn {
@@ -257,8 +316,8 @@ button.secondary {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 230px;
-  overflow-y: auto;
+  max-height: none;
+  overflow: visible;
   margin-bottom: 8px;
 }
 

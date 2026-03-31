@@ -1,19 +1,86 @@
 <!doctype html>
-<html><head><meta charset="UTF-8"><title>GEOCopilot</title>
-<link rel="stylesheet" href="popup.css"></head>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>GEOCopilot</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
 <body>
-<div class="app">
-<div class="title">GEOCopilot</div>
-<div class="subtitle">SEO / GEO 自动化助手</div>
+  <div class="app">
+    <div class="title">GEOCopilot</div>
+    <div class="subtitle">SEO / GEO 自动化助手</div>
 
-<input id="name" placeholder="站点名称">
-<input id="url" placeholder="URL">
-<textarea id="desc" placeholder="描述"></textarea>
+    <div class="tabs">
+      <button class="tab active" data-tab="sites">网站管理</button>
+      <button class="tab" data-tab="smart">智能填充</button>
+      <button class="tab" data-tab="manual">手动填充</button>
+      <button class="tab" data-tab="settings">设置</button>
+    </div>
 
-<button id="save">保存</button>
-<button id="fill">填充当前页面</button>
+    <section id="tab-sites" class="panel active">
+      <h3>添加网站信息</h3>
+      <div class="form-grid">
+        <label>网站名称 *</label>
+        <input id="siteName" placeholder="输入网站名称" required>
 
-<div id="status"></div>
-</div>
-<script src="popup.js"></script>
-</body></html>
+        <label>分类</label>
+        <input id="siteCategory" placeholder="如：技术博客、新闻网站等">
+
+        <label>网站地址 *</label>
+        <input id="siteUrl" placeholder="https://example.com" required>
+
+        <label>联系邮箱</label>
+        <input id="siteEmail" placeholder="contact@example.com (可选)">
+
+        <label>简短描述</label>
+        <textarea id="siteShortDesc" placeholder="一句话描述网站特色 (可选)"></textarea>
+
+        <label>详细描述</label>
+        <textarea id="siteLongDesc" placeholder="详细描述网站内容、特色、服务等 (可选)"></textarea>
+
+        <label>关键词标签</label>
+        <div>
+          <input id="siteTagInput" placeholder="输入关键词后按回车添加">
+          <div id="siteTags" class="tags"></div>
+        </div>
+      </div>
+      <button id="addSiteBtn">保存网站</button>
+      <h3>已保存网站</h3>
+      <div id="siteList" class="site-list"></div>
+    </section>
+
+    <section id="tab-smart" class="panel">
+      <p id="matchStatus">正在检测当前网页匹配状态...</p>
+      <button id="smartFillBtn">智能匹配并填充当前网页</button>
+    </section>
+
+    <section id="tab-manual" class="panel">
+      <div class="row">
+        <label>选择网页字段</label>
+        <select id="fieldSelect"></select>
+      </div>
+      <div class="row">
+        <label>选择填充值</label>
+        <select id="valueSelect"></select>
+      </div>
+      <button id="manualFillBtn">填充选中字段</button>
+      <button id="refreshFieldsBtn" class="secondary">刷新字段列表</button>
+    </section>
+
+    <section id="tab-settings" class="panel">
+      <label class="checkbox">
+        <input type="checkbox" id="autoFillOnLoad">
+        打开网页时自动匹配并填充（仅匹配成功时）
+      </label>
+      <label class="checkbox">
+        <input type="checkbox" id="preferSidePanel" checked disabled>
+        启用侧边栏模式（右侧 Tab）
+      </label>
+      <p class="hint">已支持通过浏览器右侧侧边栏使用插件。</p>
+    </section>
+
+    <div id="status"></div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -9,6 +9,8 @@ const DEFAULT_DATA = {
 
 let state = structuredClone(DEFAULT_DATA);
 let pendingTags = [];
+let contextMenuEl = null;
+let contextTargetId = null;
 
 const tabs = [...document.querySelectorAll('.tab')];
 const panels = [...document.querySelectorAll('.panel')];
@@ -55,9 +57,18 @@ function activeSite() {
   return state.websites.find(w => w.id === state.activeWebsiteId) || state.websites[0] || null;
 }
 
+function hideContextMenu() {
+  if (!contextMenuEl) return;
+  contextMenuEl.remove();
+  contextMenuEl = null;
+  contextTargetId = null;
+}
+
 function renderSites() {
   const list = document.getElementById('siteList');
   list.innerHTML = '';
+  hideContextMenu();
+
   if (!state.websites.length) {
     list.innerHTML = '<p class="hint">暂无网站配置，请先添加。</p>';
     return;
@@ -65,22 +76,20 @@ function renderSites() {
 
   state.websites.forEach(site => {
     const div = document.createElement('div');
-    div.className = `site-item ${site.id === state.activeWebsiteId ? 'active' : ''}`;
+    const isActive = site.id === state.activeWebsiteId;
+    div.className = `site-item ${isActive ? 'active' : ''}`;
+    div.dataset.siteId = site.id;
     div.innerHTML = `
-      <div class="site-head">
-        <input type="radio" name="activeSite" data-action="active" data-id="${site.id}" ${site.id === state.activeWebsiteId ? 'checked' : ''}>
-        <label><strong>${site.name}</strong> (${site.category || '未分类'}) ${site.id === state.activeWebsiteId ? '· 默认读取' : ''}</label>
-      </div>
-      <div>${site.url}</div>
-      <div class="hint">${site.shortDesc || site.longDesc || ''}</div>
-      <div class="tags">${(site.tags || []).map(tag => `<span class="tag">${tag}</span>`).join('')}</div>
-      <div class="site-actions">
-        <button data-action="active" data-id="${site.id}">设为当前</button>
-        <button data-action="delete" data-id="${site.id}" class="secondary">删除</button>
-      </div>
+      <span class="site-name" title="${site.name}">${site.name}</span>
+      <span class="site-state ${isActive ? 'default' : ''}">${isActive ? '默认' : '未默认'}</span>
     `;
     list.appendChild(div);
   });
+
+  const hint = document.createElement('p');
+  hint.className = 'hint context-hint';
+  hint.textContent = '右键网站条目可设置默认或删除。';
+  list.appendChild(hint);
 }
 
 function renderValueOptions() {
@@ -171,6 +180,22 @@ function bindSectionToggle() {
   });
 }
 
+function showSiteContextMenu(x, y, siteId) {
+  hideContextMenu();
+  contextTargetId = siteId;
+
+  const menu = document.createElement('div');
+  menu.className = 'site-context-menu';
+  menu.innerHTML = `
+    <button data-action="active">设为默认</button>
+    <button data-action="delete">删除</button>
+  `;
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
+  document.body.appendChild(menu);
+  contextMenuEl = menu;
+}
+
 async function init() {
   const saved = (await getStorage()).geoData;
   state = saved ? { ...DEFAULT_DATA, ...saved, settings: { ...DEFAULT_DATA.settings, ...(saved.settings || {}) } } : structuredClone(DEFAULT_DATA);
@@ -239,19 +264,37 @@ document.getElementById('addSiteBtn').addEventListener('click', async () => {
   setStatus('网站信息已保存');
 });
 
-document.getElementById('siteList').addEventListener('click', async e => {
-  const btn = e.target.closest('[data-action]');
-  if (!btn) return;
-  const id = btn.dataset.id;
-  if (btn.dataset.action === 'delete') {
-    state.websites = state.websites.filter(site => site.id !== id);
-    if (state.activeWebsiteId === id) state.activeWebsiteId = state.websites[0]?.id || null;
+const siteList = document.getElementById('siteList');
+
+siteList.addEventListener('contextmenu', e => {
+  const item = e.target.closest('.site-item');
+  if (!item) return;
+  e.preventDefault();
+  showSiteContextMenu(e.clientX, e.clientY, item.dataset.siteId);
+});
+
+document.addEventListener('click', async e => {
+  const actionBtn = e.target.closest('.site-context-menu button[data-action]');
+  if (actionBtn && contextTargetId) {
+    const id = contextTargetId;
+    if (actionBtn.dataset.action === 'delete') {
+      state.websites = state.websites.filter(site => site.id !== id);
+      if (state.activeWebsiteId === id) state.activeWebsiteId = state.websites[0]?.id || null;
+    }
+    if (actionBtn.dataset.action === 'active') {
+      state.activeWebsiteId = id;
+    }
+    await saveStorage();
+    renderSites();
+    renderValueOptions();
+    await detectMatch();
+    setStatus(actionBtn.dataset.action === 'delete' ? '网站已删除' : '默认网站已更新');
+    return;
   }
-  if (btn.dataset.action === 'active') state.activeWebsiteId = id;
-  await saveStorage();
-  renderSites();
-  renderValueOptions();
-  await detectMatch();
+
+  if (!e.target.closest('.site-context-menu')) {
+    hideContextMenu();
+  }
 });
 
 document.getElementById('smartFillBtn').addEventListener('click', async () => {

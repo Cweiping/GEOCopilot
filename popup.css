@@ -189,6 +189,13 @@ button.secondary { background: #7e8799; }
 .checkbox input { width: auto; }
 .hint { color: #5d6475; font-size: 12px; }
 #status { margin-top: 8px; color: #2d4db0; font-size: 12px; min-height: 16px; }
+.strategy-panel { margin-top: 10px; border-top: 1px solid #e4e8f1; padding-top: 8px; }
+.strategy-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.strategy-head button { margin-top: 0; width: auto; padding: 6px 8px; }
+.strategy-list { display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto; }
+.strategy-item { border: 1px solid #dbe0eb; border-radius: 8px; background: #fff; padding: 6px; display: grid; grid-template-columns: 108px 1fr auto; gap: 6px; align-items: center; }
+.strategy-item input, .strategy-item select { margin: 0; padding: 6px; font-size: 12px; }
+.strategy-item button { margin-top: 0; background: #a0a7b8; width: auto; padding: 6px 8px; }
 
 @media (max-width: 430px) {
   .app {

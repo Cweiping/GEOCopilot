@@ -442,74 +442,234 @@ const quickFill = (() => {
   return { init, remove };
 })();
 
-const sidePanelFloatBall = (() => {
-  let button = null;
+const pageQuickRail = (() => {
+  let rail = null;
+  let resolvedLang = 'zh-CN';
 
-  async function isEnabled() {
+  const ISSUES_URL = 'https://github.com/Cweiping/GEOCopilot/issues';
+  const I18N = {
+    'zh-CN': {
+      sidePanel: '侧边栏开关',
+      smartFill: '智能填充',
+      settings: '打开设置',
+      feedback: '问题反馈（GitHub Issue）',
+      smartFillDone: n => `已自动填充 ${n} 个字段`,
+      smartFillNoMatch: '没有匹配到可填充字段',
+      smartFillDisabled: '网页填充功能已关闭',
+    },
+    en: {
+      sidePanel: 'Toggle side panel',
+      smartFill: 'Smart fill',
+      settings: 'Open settings',
+      feedback: 'Feedback (GitHub Issues)',
+      smartFillDone: n => `Auto-filled ${n} field(s)`,
+      smartFillNoMatch: 'No fillable field matched',
+      smartFillDisabled: 'Web filling is disabled',
+    },
+  };
+
+  function t(key, ...args) {
+    const value = I18N[resolvedLang]?.[key] ?? I18N['zh-CN'][key];
+    return typeof value === 'function' ? value(...args) : value;
+  }
+
+  async function resolveUiSettings() {
     const data = await safeGetGeoData();
-    if (data?.settings?.enableAllFeatures === false) return false;
-    return data?.settings?.preferSidePanel !== false;
+    const languageSetting = data?.settings?.language || 'auto';
+    if (languageSetting === 'auto') {
+      const browserLang = (navigator.languages?.[0] || navigator.language || '').toLowerCase();
+      resolvedLang = browserLang.startsWith('zh') ? 'zh-CN' : 'en';
+    } else {
+      resolvedLang = languageSetting;
+    }
+    return data;
   }
 
-  function remove() {
-    button?.remove();
-    button = null;
+  async function isEnabled(data) {
+    const source = data || await safeGetGeoData();
+    if (source?.settings?.enableAllFeatures === false) return false;
+    return source?.settings?.preferSidePanel !== false;
   }
 
-  function ensureButton() {
-    if (button) return button;
-    button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'geo-side-panel-float-ball';
-    button.title = 'GEOCopilot';
-    button.setAttribute('aria-label', 'Open GEOCopilot side panel');
-    button.textContent = '✦';
-    button.addEventListener('click', async event => {
-      event.preventDefault();
-      try {
+  function showToast(text) {
+    if (!rail || !text) return;
+    const toast = document.createElement('div');
+    toast.className = 'geo-page-rail-toast';
+    toast.textContent = text;
+    rail.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('is-visible'));
+    setTimeout(() => {
+      toast.classList.remove('is-visible');
+      setTimeout(() => toast.remove(), 180);
+    }, 1400);
+  }
+
+  async function openPanelTab(tab) {
+    const data = await safeGetGeoData() || {};
+    await chrome.storage.local.set({ geoData: { ...data, pendingPanelTab: tab } });
+    await chrome.runtime.sendMessage({ type: 'openSidePanel' });
+  }
+
+  async function smartFillCurrentPage() {
+    const data = await safeGetGeoData();
+    if (data?.settings?.enableWebFill === false) {
+      showToast(t('smartFillDisabled'));
+      return;
+    }
+    const site = data?.websites?.find(item => item.id === data.activeWebsiteId) || data?.websites?.[0];
+    if (!site) {
+      showToast(t('smartFillNoMatch'));
+      return;
+    }
+    const filled = fillBySite(site, normalizeMatchingStrategies(data?.matchingStrategies));
+    showToast(filled > 0 ? t('smartFillDone', filled) : t('smartFillNoMatch'));
+  }
+
+  function railButton(title, iconPath, onClick, className = '') {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `geo-page-rail-btn ${className}`.trim();
+    btn.title = title;
+    btn.setAttribute('aria-label', title);
+    btn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${iconPath}"></path></svg>`;
+    btn.addEventListener('click', onClick);
+    return btn;
+  }
+
+  function ensureRail() {
+    if (rail) return rail;
+    rail = document.createElement('div');
+    rail.className = 'geo-page-quick-rail';
+
+    const sidePanelBtn = railButton(
+      t('sidePanel'),
+      'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm0 2v12h5V6H4Zm7 0v12h9V6h-9Z',
+      async event => {
+        event.preventDefault();
         await chrome.runtime.sendMessage({ type: 'openSidePanel' });
-      } catch (error) {
-        console.warn('GEOCopilot: open side panel failed', error);
       }
-    });
+    );
+    const smartFillBtn = railButton(
+      t('smartFill'),
+      'M12 2 9.5 9.5 2 12l7.5 2.5L12 22l2.5-7.5L22 12l-7.5-2.5L12 2Zm0 4.44 1.2 3.6 3.6 1.2-3.6 1.2-1.2 3.6-1.2-3.6-3.6-1.2 3.6-1.2L12 6.44Z',
+      async event => {
+        event.preventDefault();
+        await smartFillCurrentPage();
+      },
+      'is-primary'
+    );
+    const settingsBtn = railButton(
+      t('settings'),
+      'M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.18 7.18 0 0 0-1.63-.94L14.4 2.7a.5.5 0 0 0-.5-.4h-3.8a.5.5 0 0 0-.5.4L9.25 5.32c-.58.23-1.12.54-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.31.6.22l2.39-.96c.5.39 1.05.71 1.63.94l.35 2.62c.04.24.25.4.5.4h3.8c.25 0 .46-.16.5-.4l.35-2.62c.58-.23 1.12-.54 1.63-.94l2.39.96c.22.09.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z',
+      async event => {
+        event.preventDefault();
+        await openPanelTab('settings');
+      }
+    );
+    const feedbackBtn = document.createElement('a');
+    feedbackBtn.className = 'geo-page-rail-btn';
+    feedbackBtn.href = ISSUES_URL;
+    feedbackBtn.target = '_blank';
+    feedbackBtn.rel = 'noopener noreferrer';
+    feedbackBtn.title = t('feedback');
+    feedbackBtn.setAttribute('aria-label', t('feedback'));
+    feedbackBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 4h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2Zm0 2v10.17L7.17 13H20V6H4Z"></path></svg>';
+
+    rail.append(sidePanelBtn, smartFillBtn, settingsBtn, feedbackBtn);
+
     const style = document.createElement('style');
-    style.id = 'geo-side-panel-float-ball-style';
+    style.id = 'geo-page-quick-rail-style';
     style.textContent = `
-      .geo-side-panel-float-ball {
+      .geo-page-quick-rail {
         position: fixed;
-        right: 12px;
+        right: 10px;
         top: 50%;
         transform: translateY(-50%);
-        width: 44px;
-        height: 44px;
-        border: 2px solid #ff3b30;
-        border-radius: 999px;
-        background: #fff;
-        color: #2862ff;
-        font-size: 20px;
-        line-height: 1;
-        cursor: pointer;
-        box-shadow: 0 8px 18px rgba(18, 44, 102, 0.24);
         z-index: 2147483647;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
       }
-      .geo-side-panel-float-ball:hover {
-        transform: translateY(-50%) scale(1.04);
+      .geo-page-rail-btn {
+        width: 24px;
+        height: 24px;
+        border-radius: 999px;
+        border: 1px solid var(--geo-rail-border);
+        background: var(--geo-rail-bg);
+        color: var(--geo-rail-color);
+        box-shadow: 0 6px 12px var(--geo-rail-shadow);
+        display: inline-grid;
+        place-items: center;
+        text-decoration: none;
+      }
+      .geo-page-rail-btn svg {
+        width: 14px;
+        height: 14px;
+        fill: currentColor;
+      }
+      .geo-page-rail-btn.is-primary {
+        background: linear-gradient(160deg, var(--geo-rail-brand), var(--geo-rail-brand-pressed));
+        color: #fff;
+        border-color: transparent;
+      }
+      .geo-page-rail-toast {
+        position: absolute;
+        right: calc(100% + 8px);
+        top: 50%;
+        transform: translateY(-50%) translateX(4px);
+        background: var(--geo-rail-toast-bg);
+        color: var(--geo-rail-toast-text);
+        border-radius: 7px;
+        padding: 4px 7px;
+        font-size: 11px;
+        white-space: nowrap;
+        opacity: 0;
+        transition: all 140ms ease;
+        pointer-events: none;
+      }
+      .geo-page-rail-toast.is-visible {
+        opacity: 1;
+        transform: translateY(-50%) translateX(0);
       }
     `;
     if (!document.getElementById(style.id)) {
       document.head.appendChild(style);
     }
-    document.body.appendChild(button);
-    return button;
+    document.body.appendChild(rail);
+    return rail;
+  }
+
+  function applyTheme(data) {
+    if (!rail) return;
+    const setting = data?.settings?.theme || 'auto';
+    const theme = setting === 'auto'
+      ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      : setting;
+    const isDark = theme === 'dark';
+    rail.style.setProperty('--geo-rail-bg', isDark ? '#1a1f2b' : '#ffffff');
+    rail.style.setProperty('--geo-rail-border', isDark ? 'rgba(244, 246, 251, 0.16)' : 'rgba(17, 19, 23, 0.12)');
+    rail.style.setProperty('--geo-rail-color', '#0a84ff');
+    rail.style.setProperty('--geo-rail-shadow', isDark ? 'rgba(0, 0, 0, 0.35)' : 'rgba(17, 19, 23, 0.12)');
+    rail.style.setProperty('--geo-rail-brand', '#0a84ff');
+    rail.style.setProperty('--geo-rail-brand-pressed', isDark ? '#369dff' : '#0071e3');
+    rail.style.setProperty('--geo-rail-toast-bg', isDark ? 'rgba(15, 18, 25, 0.94)' : 'rgba(17, 19, 23, 0.92)');
+    rail.style.setProperty('--geo-rail-toast-text', '#fff');
+  }
+
+  function remove() {
+    rail?.remove();
+    rail = null;
   }
 
   async function init() {
     if (!chrome?.runtime?.id) return;
-    if (!(await isEnabled())) {
+    const data = await resolveUiSettings();
+    if (!(await isEnabled(data))) {
       remove();
       return;
     }
-    ensureButton();
+    ensureRail();
+    applyTheme(data);
   }
 
   return { init, remove };
@@ -566,12 +726,12 @@ if (chrome?.runtime?.id) {
 })();
 
 quickFill.init().catch(error => console.warn('GEOCopilot: quick fill init failed', error));
-sidePanelFloatBall.init().catch(error => console.warn('GEOCopilot: float ball init failed', error));
+pageQuickRail.init().catch(error => console.warn('GEOCopilot: page quick rail init failed', error));
 
 if (chrome?.storage?.onChanged) {
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local' || !changes.geoData) return;
     quickFill.init().catch(error => console.warn('GEOCopilot: quick fill refresh failed', error));
-    sidePanelFloatBall.init().catch(error => console.warn('GEOCopilot: float ball refresh failed', error));
+    pageQuickRail.init().catch(error => console.warn('GEOCopilot: page quick rail refresh failed', error));
   });
 }

@@ -1,0 +1,87 @@
+name: Release Chrome Extension Package
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Read version from manifest.json
+        id: manifest
+        run: |
+          VERSION=$(python - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path('manifest.json').read_text(encoding='utf-8'))
+          print(manifest['version'])
+          PY
+          )
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Validate tag matches manifest version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          if [[ "$TAG" != "${{ steps.manifest.outputs.version }}" ]]; then
+            echo "Tag version ($TAG) does not match manifest version (${{ steps.manifest.outputs.version }})."
+            exit 1
+          fi
+
+      - name: Ensure release commit is on main
+        run: |
+          git fetch origin main --depth=1
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "Release commit ($GITHUB_SHA) is not on origin/main."
+            exit 1
+          fi
+
+      - name: Build release zip
+        run: bash scripts/package-chrome-extension.sh
+
+      - name: Generate release notes from commits
+        id: notes
+        run: |
+          CURRENT_TAG="v${{ steps.manifest.outputs.version }}"
+          PREV_TAG=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | grep -vx "$CURRENT_TAG" | head -n 1 || true)
+
+          {
+            echo "## What's Changed"
+            echo
+            if [[ -n "$PREV_TAG" ]]; then
+              git log --pretty='- %s (%h)' "${PREV_TAG}..HEAD"
+              echo
+              echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${CURRENT_TAG}"
+            else
+              git log --pretty='- %s (%h)'
+              echo
+              echo "_No previous semver tag found; listed all available commits._"
+            fi
+          } > release-notes.md
+
+          echo "notes_file=release-notes.md" >> "$GITHUB_OUTPUT"
+
+      - name: Upload package to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/GEOCopilot-chrome-v${{ steps.manifest.outputs.version }}.zip
+          body_path: ${{ steps.notes.outputs.notes_file }}
+          tag_name: v${{ steps.manifest.outputs.version }}
+          name: v${{ steps.manifest.outputs.version }}

@@ -18,10 +18,10 @@ const FEEDBACK_ISSUES_URL = 'https://github.com/Cweiping/GEOCopilot/issues';
 const BUILTIN_MATCHING_STRATEGIES = [
   { key: 'name', label: '网站名称', aliases: ['网站名称', 'name', 'title', '站点名称', '网站名'] },
   { key: 'category', label: '分类', aliases: ['分类', 'category', 'type'] },
-  { key: 'url', label: '网站地址', aliases: ['网址', 'url', 'link', 'site', 'homepage', 'domain', '网站地址'] },
+  { key: 'url', label: '网站地址', aliases: ['网址', 'url', 'link', 'site', 'homepage', 'domain', '网站地址', 'location', 'site location'] },
   { key: 'email', label: '联系邮箱', aliases: ['邮箱', 'email', 'mail', '联系'] },
   { key: 'shortDesc', label: '简短描述', aliases: ['简短描述', 'short', 'slogan', 'summary', '一句话'] },
-  { key: 'longDesc', label: '详细描述', aliases: ['详细描述', 'long', 'detail', 'description', '内容介绍', '简介', '描述'] },
+  { key: 'longDesc', label: '详细描述', aliases: ['详细描述', 'long', 'detail', 'description', '内容介绍', '简介', '描述', '正文', '内容详情', 'editor', 'rich text', 'post', 'content', 'desc', 'addesc'] },
   { key: 'tags', label: '关键词标签', aliases: ['关键词', 'tags', 'keyword'] },
 ];
 

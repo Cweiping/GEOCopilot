@@ -470,6 +470,8 @@ if (chrome?.runtime?.id) {
 (async function autoFillOnLoad() {
   try {
     const data = await safeGetGeoData();
+    if (data?.settings?.enableAllFeatures === false) return;
+    if (data?.settings?.enableWebFill === false) return;
     if (!data?.settings?.autoFillOnLoad) return;
     const site = data.websites?.find(item => item.id === data.activeWebsiteId) || data.websites?.[0];
     if (!site) return;

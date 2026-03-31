@@ -3,6 +3,8 @@ const DEFAULT_DATA = {
   activeWebsiteId: null,
   editingWebsiteId: null,
   settings: {
+    enableWebFill: true,
+    enableAllFeatures: true,
     autoFillOnLoad: true,
     preferSidePanel: true,
     language: 'auto',
@@ -59,6 +61,8 @@ const I18N = {
     valueSelectLabel: '选择填充值',
     manualFillBtn: '填充选中字段',
     refreshFieldsBtn: '刷新字段列表',
+    enableWebFillSetting: '启用网页填充功能',
+    enableAllFeaturesSetting: '启用插件全部功能',
     autoFillSetting: '打开网页时自动匹配并填充（仅匹配成功时）',
     sidePanelSetting: '启用侧边栏模式（右侧 Tab）',
     languageLabel: '界面语言',
@@ -88,6 +92,8 @@ const I18N = {
     matchFail: m => `匹配失败：${m}`,
     smartFillFail: m => `智能填充失败：${m}`,
     manualFillError: m => `手动填充失败：${m}`,
+    webFillDisabled: '网页填充功能已关闭，请在设置中开启后重试',
+    allFeaturesDisabled: '插件高级功能已关闭，请在设置中开启“启用插件全部功能”',
     noActiveTab: '未找到活动标签页',
     noInjected: '当前页面未注入内容脚本（常见于 chrome:// 页面、扩展页，或页面刚加载）。请切换到普通网页后重试。',
     valueLabels: {
@@ -119,11 +125,15 @@ const I18N = {
     defaultTag: 'Default', notDefaultTag: 'Not Default', matchChecking: 'Checking page match status...', noSiteForMatch: 'No site config yet. Please add one in Site Management.',
     matched: site => `Matched site: ${site}. Smart fill is ready.`, notMatched: url => `No matching rule for current page (${url || 'unknown page'}). You can still use manual fill.`,
     smartFillBtn: 'Smart match and fill current page', fieldSelectLabel: 'Select page field', valueSelectLabel: 'Select value', manualFillBtn: 'Fill selected field', refreshFieldsBtn: 'Refresh field list',
+    enableWebFillSetting: 'Enable web filling',
+    enableAllFeaturesSetting: 'Enable all plugin features',
     autoFillSetting: 'Auto match and fill on page load (only when matched)', sidePanelSetting: 'Enable side panel mode (right-side tab)', languageLabel: 'Language', themeLabel: 'Theme', themeAuto: 'Follow system', themeLight: 'Light', themeDark: 'Dark', languageAuto: 'Follow browser', languageZh: 'Chinese', languageEn: 'English', sidePanelHint: 'Side panel mode is supported from the browser right panel.',
     fillRequired: 'Required: Site Name and Site URL', siteSaved: 'Site saved', siteUpdated: 'Site updated', siteDeleted: 'Site deleted', defaultUpdated: 'Default site updated', settingsSaved: 'Settings saved',
     chooseFieldValue: 'Please choose a field and a value', manualFillSuccess: 'Manual fill succeeded', manualFillFail: 'Manual fill failed', addSiteFirst: 'Please add a site config first',
     smartFillDone: n => `Auto-filled ${n} field(s)`, smartFillNoMatch: 'No fillable field matched', noAvailableField: 'No fillable field found', addSiteFirstOption: 'Add a site first',
     fieldReadFail: m => `Failed to read fields: ${m}`, matchFail: m => `Match failed: ${m}`, smartFillFail: m => `Smart fill failed: ${m}`, manualFillError: m => `Manual fill failed: ${m}`,
+    webFillDisabled: 'Web filling is disabled. Enable it in Settings to continue.',
+    allFeaturesDisabled: 'Advanced plugin features are disabled. Turn on "Enable all plugin features" in Settings.',
     noActiveTab: 'No active tab found', noInjected: 'Content script not injected on this page (common on chrome:// pages or extension pages). Switch to a normal web page and retry.',
     valueLabels: {
       name: 'Site Name', category: 'Category', url: 'Site URL', email: 'Contact Email', shortDesc: 'Short Description', longDesc: 'Long Description', tags: 'Keyword Tags (comma-joined)',
@@ -188,6 +198,8 @@ function applyI18n() {
   document.getElementById('quickImportBtn').setAttribute('data-tooltip', t('quickImportTip'));
   document.getElementById('manualFillBtn').textContent = t('manualFillBtn');
   document.getElementById('refreshFieldsBtn').textContent = t('refreshFieldsBtn');
+  document.getElementById('enableWebFillLabel').textContent = t('enableWebFillSetting');
+  document.getElementById('enableAllFeaturesLabel').textContent = t('enableAllFeaturesSetting');
   document.getElementById('autoFillOnLoadLabel').textContent = t('autoFillSetting');
   document.getElementById('preferSidePanelLabel').textContent = t('sidePanelSetting');
   document.getElementById('languageLabel').textContent = t('languageLabel');
@@ -209,6 +221,7 @@ function applyI18n() {
   document.getElementById('siteTagInput').placeholder = t('tagPlaceholder');
   document.getElementById('addSiteBtn').textContent = state.editingWebsiteId ? t('updateSite') : t('saveSite');
   document.getElementById('matchStatus').textContent = t('matchChecking');
+  applySettingsControls();
   renderStrategies();
 }
 
@@ -287,6 +300,35 @@ function effectiveTheme() {
   if (state.settings.theme === 'dark') return 'dark';
   if (state.settings.theme === 'light') return 'light';
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function applySettingsControls() {
+  const webFillEnabled = state.settings.enableWebFill !== false;
+  const allFeaturesEnabled = state.settings.enableAllFeatures !== false;
+  const smartBtn = document.getElementById('smartFillBtn');
+  const manualBtn = document.getElementById('manualFillBtn');
+  const refreshBtn = document.getElementById('refreshFieldsBtn');
+  const autoFillToggle = document.getElementById('autoFillOnLoad');
+  const smartTab = document.getElementById('tabSmartBtn');
+  const manualTab = document.getElementById('tabManualBtn');
+  const tabSmartPanel = document.getElementById('tab-smart');
+  const tabManualPanel = document.getElementById('tab-manual');
+
+  const disableFillActions = !webFillEnabled || !allFeaturesEnabled;
+  [smartBtn, manualBtn, refreshBtn].forEach(el => { if (el) el.disabled = disableFillActions; });
+  if (autoFillToggle) autoFillToggle.disabled = !webFillEnabled;
+  [smartTab, manualTab].forEach(el => { if (el) el.disabled = !allFeaturesEnabled; });
+
+  if (!allFeaturesEnabled) {
+    if (smartTab?.classList.contains('active') || manualTab?.classList.contains('active')) {
+      tabs.forEach(ti => ti.classList.remove('active'));
+      panels.forEach(p => p.classList.remove('active'));
+      document.getElementById('tabSitesBtn').classList.add('active');
+      document.getElementById('tab-sites').classList.add('active');
+    }
+    tabSmartPanel?.classList.remove('active');
+    tabManualPanel?.classList.remove('active');
+  }
 }
 
 function applyTheme() {
@@ -430,7 +472,10 @@ async function init() {
   applyI18n();
   document.getElementById('languageSelect').value = state.settings.language || 'auto';
   document.getElementById('themeSelect').value = state.settings.theme || 'auto';
+  document.getElementById('enableWebFill').checked = state.settings.enableWebFill !== false;
+  document.getElementById('enableAllFeatures').checked = state.settings.enableAllFeatures !== false;
   document.getElementById('autoFillOnLoad').checked = !!state.settings.autoFillOnLoad;
+  applySettingsControls();
   applyTheme();
   renderSites();
   renderTags();
@@ -440,6 +485,10 @@ async function init() {
 }
 
 tabs.forEach(btn => btn.addEventListener('click', async () => {
+  if (btn.dataset.tab !== 'sites' && btn.dataset.tab !== 'settings' && state.settings.enableAllFeatures === false) {
+    setStatus(t('allFeaturesDisabled'));
+    return;
+  }
   tabs.forEach(ti => ti.classList.remove('active')); panels.forEach(p => p.classList.remove('active'));
   btn.classList.add('active'); document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
   if (btn.dataset.tab === 'manual') await refreshFieldList();
@@ -523,6 +572,8 @@ document.addEventListener('click', async e => {
 });
 
 document.getElementById('smartFillBtn').addEventListener('click', async () => {
+  if (state.settings.enableAllFeatures === false) { setStatus(t('allFeaturesDisabled')); return; }
+  if (state.settings.enableWebFill === false) { setStatus(t('webFillDisabled')); return; }
   const site = activeSite();
   if (!site) { setStatus(t('addSiteFirst')); return; }
   try {
@@ -535,6 +586,8 @@ document.getElementById('smartFillBtn').addEventListener('click', async () => {
 });
 
 document.getElementById('manualFillBtn').addEventListener('click', async () => {
+  if (state.settings.enableAllFeatures === false) { setStatus(t('allFeaturesDisabled')); return; }
+  if (state.settings.enableWebFill === false) { setStatus(t('webFillDisabled')); return; }
   const site = activeSite();
   if (!site) { setStatus(t('addSiteFirst')); return; }
   const selector = document.getElementById('fieldSelect').value;
@@ -547,7 +600,11 @@ document.getElementById('manualFillBtn').addEventListener('click', async () => {
   } catch (e) { setStatus(t('manualFillError')(normalizeMessageError(e))); }
 });
 
-document.getElementById('refreshFieldsBtn').addEventListener('click', refreshFieldList);
+document.getElementById('refreshFieldsBtn').addEventListener('click', async () => {
+  if (state.settings.enableAllFeatures === false) { setStatus(t('allFeaturesDisabled')); return; }
+  if (state.settings.enableWebFill === false) { setStatus(t('webFillDisabled')); return; }
+  await refreshFieldList();
+});
 document.getElementById('addStrategyBtn').addEventListener('click', () => {
   state.matchingStrategies = normalizeMatchingStrategies(state.matchingStrategies);
   state.matchingStrategies.push({ key: 'name', label: strategyFieldLabel('name'), aliases: ['name'] });
@@ -610,7 +667,10 @@ document.getElementById('quickImportInput').addEventListener('change', async e =
     applyI18n();
     document.getElementById('languageSelect').value = state.settings.language || 'auto';
     document.getElementById('themeSelect').value = state.settings.theme || 'auto';
+    document.getElementById('enableWebFill').checked = state.settings.enableWebFill !== false;
+    document.getElementById('enableAllFeatures').checked = state.settings.enableAllFeatures !== false;
     document.getElementById('autoFillOnLoad').checked = !!state.settings.autoFillOnLoad;
+    applySettingsControls();
     applyTheme();
     renderSites();
     renderValueOptions();
@@ -624,6 +684,20 @@ document.getElementById('quickImportInput').addEventListener('change', async e =
 });
 document.getElementById('autoFillOnLoad').addEventListener('change', async e => {
   state.settings.autoFillOnLoad = e.target.checked; await saveStorage(); setStatus(t('settingsSaved'));
+});
+document.getElementById('enableWebFill').addEventListener('change', async e => {
+  state.settings.enableWebFill = e.target.checked;
+  if (!e.target.checked) state.settings.autoFillOnLoad = false;
+  document.getElementById('autoFillOnLoad').checked = !!state.settings.autoFillOnLoad;
+  applySettingsControls();
+  await saveStorage();
+  setStatus(t('settingsSaved'));
+});
+document.getElementById('enableAllFeatures').addEventListener('change', async e => {
+  state.settings.enableAllFeatures = e.target.checked;
+  applySettingsControls();
+  await saveStorage();
+  setStatus(t('settingsSaved'));
 });
 document.getElementById('languageSelect').addEventListener('change', async e => {
   state.settings.language = e.target.value;

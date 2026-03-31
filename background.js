@@ -9,5 +9,3 @@ chrome.action.onClicked?.addListener(async (tab) => {
     await chrome.sidePanel.open({ windowId: tab.windowId });
   }
 });
-
-console.log('GEOCopilot ready');

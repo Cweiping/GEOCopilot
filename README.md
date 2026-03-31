@@ -129,7 +129,15 @@ release/GEOCopilot-chrome-v<version>.zip
 1. Open Chrome Web Store Developer Dashboard
 2. Create/select extension item
 3. Upload `release/GEOCopilot-chrome-v<version>.zip`
-4. Complete listing and submit for review
+4. Add privacy policy URL/content (see `PRIVACY.md`)
+5. Complete listing and submit for review
+
+### Chrome Web Store Review Checklist
+- Keep extension purpose single and clear: GEO/SEO form fill assistant.
+- Request least-privilege permissions.
+- Keep privacy disclosures consistent with real behavior.
+- Ensure listing screenshots/text match current functionality.
+- Avoid misleading claims and remote code loading.
 
 ---
 
@@ -241,6 +249,13 @@ release/GEOCopilot-chrome-v<version>.zip
 ```
 
 > 说明：`release/*.zip` 为本地或 CI 产物，不提交到 git。
+
+### Chrome Web Store 上架检查清单
+- 扩展用途保持单一且清晰（GEO/SEO 表单填充助手）。
+- 权限遵循最小化原则，避免不必要的高权限申请。
+- 隐私披露与实际行为保持一致（详见 `PRIVACY.md`）。
+- 商店截图与文案和当前版本功能一致。
+- 不做误导性描述，不加载远程代码。
 
 ### 开源规范
 - License：`LICENSE`（MIT）

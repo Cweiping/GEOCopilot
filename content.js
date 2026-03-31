@@ -14,20 +14,29 @@ function setNativeValue(el, value) {
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-function findValueByHint(hint, site) {
-  const map = [
-    { keys: ['网站名称', 'name', 'title', '站点名称', '网站名'], value: site.name },
-    { keys: ['分类', 'category', 'type'], value: site.category },
-    { keys: ['网址', 'url', 'link', 'site', 'homepage', 'domain', '网站地址'], value: site.url },
-    { keys: ['邮箱', 'email', 'mail', '联系'], value: site.email },
-    { keys: ['简短描述', 'short', 'slogan', 'summary', '一句话'], value: site.shortDesc },
-    { keys: ['详细描述', 'long', 'detail', 'description', '内容介绍', '简介', '描述'], value: site.longDesc || site.shortDesc },
-    { keys: ['关键词', 'tags', 'keyword'], value: (site.tags || []).join(', ') },
+function getFieldMappings(site) {
+  return [
+    { key: 'name', label: '网站名称', keys: ['网站名称', 'name', 'title', '站点名称', '网站名'], value: site.name },
+    { key: 'category', label: '分类', keys: ['分类', 'category', 'type'], value: site.category },
+    { key: 'url', label: '网站地址', keys: ['网址', 'url', 'link', 'site', 'homepage', 'domain', '网站地址'], value: site.url },
+    { key: 'email', label: '联系邮箱', keys: ['邮箱', 'email', 'mail', '联系'], value: site.email },
+    { key: 'shortDesc', label: '简短描述', keys: ['简短描述', 'short', 'slogan', 'summary', '一句话'], value: site.shortDesc },
+    { key: 'longDesc', label: '详细描述', keys: ['详细描述', 'long', 'detail', 'description', '内容介绍', '简介', '描述'], value: site.longDesc || site.shortDesc },
+    { key: 'tags', label: '关键词标签', keys: ['关键词', 'tags', 'keyword'], value: (site.tags || []).join(', ') },
   ];
-  for (const item of map) {
-    if (item.keys.some(k => hint.includes(k.toLowerCase())) && item.value) return item.value;
+}
+
+function matchFieldByHint(hint, site) {
+  for (const item of getFieldMappings(site)) {
+    if (item.value && item.keys.some(k => hint.includes(k.toLowerCase()))) {
+      return item;
+    }
   }
-  return '';
+  return null;
+}
+
+function findValueByHint(hint, site) {
+  return matchFieldByHint(hint, site)?.value || '';
 }
 
 function fillBySite(site) {
@@ -64,16 +73,21 @@ function fieldSelector(el, index) {
 }
 
 const quickFill = (() => {
-  let trigger = null;
   let panel = null;
   let activeField = null;
   let activeSite = null;
+  const markers = [];
+  let observer = null;
+  let renderTimer = null;
 
   function remove() {
-    trigger?.remove();
+    markers.forEach(({ btn }) => btn.remove());
+    markers.length = 0;
     panel?.remove();
-    trigger = null;
     panel = null;
+    observer?.disconnect();
+    observer = null;
+    activeField = null;
   }
 
   function hidePanel() {
@@ -81,26 +95,24 @@ const quickFill = (() => {
   }
 
   function positionNearField(element, node, offsetX = 0, offsetY = 0) {
-    if (!element || !node) return;
+    if (!element || !node || !document.body.contains(element)) return;
     const rect = element.getBoundingClientRect();
     node.style.position = 'fixed';
-    node.style.left = `${Math.max(8, rect.right - node.offsetWidth - 8 + offsetX)}px`;
-    node.style.top = `${Math.max(8, rect.top + (rect.height - node.offsetHeight) / 2 + offsetY)}px`;
+    node.style.left = `${Math.max(8, rect.right - node.offsetWidth - 6 + offsetX)}px`;
+    node.style.top = `${Math.max(8, rect.top + 6 + offsetY)}px`;
     node.style.zIndex = '2147483647';
+  }
+
+  function positionAllMarkers() {
+    markers.forEach(({ field, btn }) => positionNearField(field, btn));
+    if (panel?.style.display !== 'none' && activeField) {
+      positionNearField(activeField, panel, 0, 24);
+    }
   }
 
   function availableSiteFields(site) {
     if (!site) return [];
-    const rows = [
-      ['name', '网站名称', site.name],
-      ['category', '分类', site.category],
-      ['url', '网站地址', site.url],
-      ['email', '联系邮箱', site.email],
-      ['shortDesc', '简短描述', site.shortDesc],
-      ['longDesc', '详细描述', site.longDesc || site.shortDesc],
-      ['tags', '关键词标签', (site.tags || []).join(', ')],
-    ];
-    return rows.filter(([, , value]) => !!value);
+    return getFieldMappings(site).filter(item => !!item.value);
   }
 
   async function getActiveSiteFromStorage() {
@@ -113,17 +125,18 @@ const quickFill = (() => {
   function buildPanelItems(site) {
     if (!panel) return;
     panel.innerHTML = '';
+
     const header = document.createElement('div');
     header.textContent = '快速填写';
     header.style.fontWeight = '600';
     header.style.fontSize = '12px';
-    header.style.marginBottom = '6px';
+    header.style.marginBottom = '4px';
     panel.appendChild(header);
 
     const fillAllBtn = document.createElement('button');
     fillAllBtn.type = 'button';
     fillAllBtn.textContent = '智能填充整页';
-    fillAllBtn.className = 'geo-quick-fill-btn';
+    fillAllBtn.className = 'geo-quick-fill-btn geo-quick-fill-primary';
     fillAllBtn.addEventListener('click', e => {
       e.preventDefault();
       if (!site) return;
@@ -132,16 +145,16 @@ const quickFill = (() => {
     });
     panel.appendChild(fillAllBtn);
 
-    for (const [key, label, value] of availableSiteFields(site)) {
+    for (const item of availableSiteFields(site)) {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'geo-quick-fill-btn';
-      btn.textContent = `填写${label}`;
-      btn.dataset.key = key;
+      btn.innerHTML = `<strong>${item.label}:</strong> <span>${item.value}</span>`;
+      btn.dataset.key = item.key;
       btn.addEventListener('click', e => {
         e.preventDefault();
         if (!activeField) return;
-        setNativeValue(activeField, value);
+        setNativeValue(activeField, item.value);
         hidePanel();
       });
       panel.appendChild(btn);
@@ -149,109 +162,149 @@ const quickFill = (() => {
   }
 
   function ensureNodes() {
-    if (trigger && panel) return;
-
-    trigger = document.createElement('button');
-    trigger.type = 'button';
-    trigger.title = '选择内容填充';
-    trigger.textContent = '✦';
-    trigger.style.display = 'none';
-    trigger.style.width = '28px';
-    trigger.style.height = '28px';
-    trigger.style.border = '1px solid #dbe0eb';
-    trigger.style.borderRadius = '6px';
-    trigger.style.cursor = 'pointer';
-    trigger.style.background = '#2962ff';
-    trigger.style.color = '#fff';
-    trigger.style.boxShadow = '0 2px 8px rgba(0, 0, 0, .15)';
-    trigger.style.fontSize = '14px';
-    document.body.appendChild(trigger);
+    if (panel) return;
 
     panel = document.createElement('div');
     panel.style.display = 'none';
-    panel.style.minWidth = '140px';
-    panel.style.maxWidth = '220px';
+    panel.style.minWidth = '160px';
+    panel.style.maxWidth = '260px';
     panel.style.background = '#fff';
     panel.style.border = '1px solid #dbe0eb';
     panel.style.borderRadius = '8px';
-    panel.style.padding = '8px';
-    panel.style.boxShadow = '0 6px 16px rgba(0, 0, 0, .18)';
+    panel.style.padding = '6px';
+    panel.style.boxShadow = '0 6px 16px rgba(0, 0, 0, .16)';
     panel.style.fontSize = '12px';
-    panel.style.lineHeight = '1.4';
-    panel.style.gap = '6px';
+    panel.style.lineHeight = '1.35';
+    panel.style.gap = '4px';
     panel.style.flexDirection = 'column';
-    panel.style.display = 'none';
     document.body.appendChild(panel);
 
     const style = document.createElement('style');
     style.textContent = `
+      .geo-quick-fill-trigger {
+        position: fixed;
+        width: 18px;
+        height: 18px;
+        border: 1px solid #cdd8f5;
+        border-radius: 999px;
+        background: #2962ff;
+        color: #fff;
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, .18);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        line-height: 1;
+        padding: 0;
+      }
+
       .geo-quick-fill-btn {
         width: 100%;
-        margin: 0 0 6px;
+        margin: 0;
         border: 1px solid #dbe0eb;
         border-radius: 6px;
-        background: #f6f8ff;
-        color: #1f3f9f;
-        font-size: 12px;
-        padding: 6px;
+        background: #fff;
+        color: #2c3342;
+        font-size: 11px;
+        padding: 4px 6px;
         cursor: pointer;
+        text-align: left;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
-      .geo-quick-fill-btn:last-child {
-        margin-bottom: 0;
+
+      .geo-quick-fill-btn strong {
+        font-weight: 600;
+      }
+
+      .geo-quick-fill-btn span {
+        color: #5d6475;
+      }
+
+      .geo-quick-fill-primary {
+        text-align: center;
+        background: #f4f7ff;
+        color: #1f3f9f;
+        font-weight: 600;
       }
     `;
     document.head.appendChild(style);
 
-    trigger.addEventListener('mousedown', e => e.preventDefault());
-    trigger.addEventListener('click', async e => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (!activeField) return;
-      activeSite = await getActiveSiteFromStorage();
-      buildPanelItems(activeSite);
-      panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
-      if (panel.style.display !== 'none') positionNearField(activeField, panel, 0, 36);
-    });
-
-    document.addEventListener('scroll', () => {
-      if (trigger?.style.display !== 'none' && activeField) positionNearField(activeField, trigger);
-      if (panel?.style.display !== 'none' && activeField) positionNearField(activeField, panel, 0, 36);
-    }, true);
-    window.addEventListener('resize', () => {
-      if (trigger?.style.display !== 'none' && activeField) positionNearField(activeField, trigger);
-      if (panel?.style.display !== 'none' && activeField) positionNearField(activeField, panel, 0, 36);
-    });
     document.addEventListener('mousedown', e => {
       const target = e.target;
-      if (!panel || !trigger) return;
-      if (panel.contains(target) || trigger.contains(target)) return;
+      const clickedMarker = markers.some(({ btn }) => btn.contains(target));
+      if (clickedMarker || panel?.contains(target)) return;
       hidePanel();
     });
+
+    document.addEventListener('scroll', positionAllMarkers, true);
+    window.addEventListener('resize', positionAllMarkers);
   }
 
-  async function onFieldFocus(event) {
-    const target = event.target;
-    if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) return;
-    if (target.disabled || target.type === 'hidden') return;
-
-    ensureNodes();
-    activeField = target;
-    trigger.style.display = 'block';
-    positionNearField(target, trigger);
-    hidePanel();
+  function clearMarkers() {
+    markers.forEach(({ btn }) => btn.remove());
+    markers.length = 0;
   }
 
-  function onFieldBlur(event) {
-    if (event.target !== activeField) return;
-    setTimeout(() => {
-      const focusInsideQuickFill = trigger?.contains(document.activeElement) || panel?.contains(document.activeElement);
-      if (focusInsideQuickFill) return;
-      trigger.style.display = 'none';
+  function addMarkerForField(field, mapped) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'geo-quick-fill-trigger';
+    btn.title = `快速填写：${mapped.label}`;
+    btn.textContent = '✦';
+
+    btn.addEventListener('mousedown', e => e.preventDefault());
+    btn.addEventListener('click', async e => {
+      e.preventDefault();
+      e.stopPropagation();
+      activeField = field;
+      activeSite = await getActiveSiteFromStorage();
+      if (!activeSite) return;
+      buildPanelItems(activeSite);
+      panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+      if (panel.style.display !== 'none') positionNearField(activeField, panel, 0, 24);
+    });
+
+    document.body.appendChild(btn);
+    markers.push({ field, btn });
+    positionNearField(field, btn);
+  }
+
+  function renderMarkers(site) {
+    if (!site) {
+      clearMarkers();
       hidePanel();
-    }, 120);
+      return;
+    }
+
+    const candidates = [...document.querySelectorAll('input, textarea')]
+      .filter(el => !el.disabled && el.type !== 'hidden' && document.body.contains(el));
+
+    clearMarkers();
+    for (const field of candidates) {
+      const mapped = matchFieldByHint(textOf(field), site);
+      if (!mapped?.value) continue;
+      addMarkerForField(field, mapped);
+    }
   }
 
-  return { onFieldFocus, onFieldBlur, remove };
+  function debounceRender(site) {
+    clearTimeout(renderTimer);
+    renderTimer = setTimeout(() => renderMarkers(site), 120);
+  }
+
+  async function init() {
+    ensureNodes();
+    activeSite = await getActiveSiteFromStorage();
+    renderMarkers(activeSite);
+
+    observer = new MutationObserver(() => debounceRender(activeSite));
+    observer.observe(document.documentElement, { childList: true, subtree: true, attributes: false });
+  }
+
+  return { init, remove };
 })();
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -297,5 +350,4 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   fillBySite(site);
 })();
 
-document.addEventListener('focusin', quickFill.onFieldFocus);
-document.addEventListener('focusout', quickFill.onFieldBlur);
+quickFill.init();

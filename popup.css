@@ -94,7 +94,7 @@ button.secondary { background: #7e8799; }
 .site-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   max-height: 240px;
   overflow-y: auto;
 }
@@ -115,31 +115,68 @@ button.secondary { background: #7e8799; }
   border: 1px solid #dbe0eb;
   border-radius: 8px;
   background: #fff;
-  padding: 8px;
+  padding: 7px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: context-menu;
 }
 
 .site-item.active { border-color: #2962ff; }
 
-.site-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.site-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #20242f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.site-head label {
-  cursor: pointer;
+.site-state {
+  font-size: 11px;
+  border-radius: 999px;
+  padding: 2px 6px;
+  color: #5d6475;
+  background: #f1f3f8;
+  flex-shrink: 0;
 }
 
-.site-actions {
-  display: flex;
-  gap: 8px;
+.site-state.default {
+  color: #1e4fd8;
+  background: #eaf0ff;
+}
+
+.context-hint {
   margin-top: 6px;
 }
 
-.site-actions button {
+.site-context-menu {
+  position: fixed;
+  z-index: 10000;
+  background: #fff;
+  border: 1px solid #dbe0eb;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .16);
+  padding: 4px;
+  width: 128px;
+}
+
+.site-context-menu button {
   margin-top: 0;
-  padding: 6px;
+  width: 100%;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #20242f;
+  text-align: left;
   font-size: 12px;
+  padding: 6px 8px;
+}
+
+.site-context-menu button:hover {
+  background: #f4f7ff;
 }
 
 .row { margin-bottom: 8px; }

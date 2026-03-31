@@ -28,9 +28,7 @@ function getFieldMappings(site) {
 
 function matchFieldByHint(hint, site) {
   for (const item of getFieldMappings(site)) {
-    if (item.value && item.keys.some(k => hint.includes(k.toLowerCase()))) {
-      return item;
-    }
+    if (item.value && item.keys.some(k => hint.includes(k.toLowerCase()))) return item;
   }
   return null;
 }
@@ -42,7 +40,6 @@ function findValueByHint(hint, site) {
 function fillBySite(site) {
   const candidates = [...document.querySelectorAll('input, textarea')].filter(el => !el.disabled && el.type !== 'hidden');
   let filled = 0;
-
   for (const el of candidates) {
     const hint = textOf(el);
     const value = findValueByHint(hint, site);
@@ -51,7 +48,6 @@ function fillBySite(site) {
       filled += 1;
     }
   }
-
   return filled;
 }
 
@@ -79,6 +75,36 @@ const quickFill = (() => {
   const markers = [];
   let observer = null;
   let renderTimer = null;
+  let lang = 'zh-CN';
+
+  const I18N = {
+    'zh-CN': {
+      header: '快速填写',
+      fillPage: '智能填充整页',
+      triggerTitle: label => `快速填写：${label}`,
+    },
+    en: {
+      header: 'Quick Fill',
+      fillPage: 'Smart fill whole page',
+      triggerTitle: label => `Quick fill: ${label}`,
+    },
+  };
+
+  function t(key) {
+    const value = I18N[lang]?.[key] ?? I18N['zh-CN'][key];
+    return typeof value === 'function' ? value : value;
+  }
+
+  async function resolveLanguage() {
+    const store = await chrome.storage.local.get('geoData');
+    const setting = store?.geoData?.settings?.language || 'auto';
+    if (setting !== 'auto') {
+      lang = setting;
+      return;
+    }
+    const browserLang = (navigator.languages?.[0] || navigator.language || '').toLowerCase();
+    lang = browserLang.startsWith('zh') ? 'zh-CN' : 'en';
+  }
 
   function remove() {
     markers.forEach(({ btn }) => btn.remove());
@@ -90,9 +116,7 @@ const quickFill = (() => {
     activeField = null;
   }
 
-  function hidePanel() {
-    if (panel) panel.style.display = 'none';
-  }
+  function hidePanel() { if (panel) panel.style.display = 'none'; }
 
   function positionNearField(element, node, offsetX = 0, offsetY = 0) {
     if (!element || !node || !document.body.contains(element)) return;
@@ -105,9 +129,7 @@ const quickFill = (() => {
 
   function positionAllMarkers() {
     markers.forEach(({ field, btn }) => positionNearField(field, btn));
-    if (panel?.style.display !== 'none' && activeField) {
-      positionNearField(activeField, panel, 0, 24);
-    }
+    if (panel?.style.display !== 'none' && activeField) positionNearField(activeField, panel, 0, 24);
   }
 
   function availableSiteFields(site) {
@@ -127,7 +149,7 @@ const quickFill = (() => {
     panel.innerHTML = '';
 
     const header = document.createElement('div');
-    header.textContent = '快速填写';
+    header.textContent = t('header');
     header.style.fontWeight = '600';
     header.style.fontSize = '12px';
     header.style.marginBottom = '4px';
@@ -135,7 +157,7 @@ const quickFill = (() => {
 
     const fillAllBtn = document.createElement('button');
     fillAllBtn.type = 'button';
-    fillAllBtn.textContent = '智能填充整页';
+    fillAllBtn.textContent = t('fillPage');
     fillAllBtn.className = 'geo-quick-fill-btn geo-quick-fill-primary';
     fillAllBtn.addEventListener('click', e => {
       e.preventDefault();
@@ -163,7 +185,6 @@ const quickFill = (() => {
 
   function ensureNodes() {
     if (panel) return;
-
     panel = document.createElement('div');
     panel.style.display = 'none';
     panel.style.minWidth = '160px';
@@ -215,20 +236,9 @@ const quickFill = (() => {
         text-overflow: ellipsis;
       }
 
-      .geo-quick-fill-btn strong {
-        font-weight: 600;
-      }
-
-      .geo-quick-fill-btn span {
-        color: #5d6475;
-      }
-
-      .geo-quick-fill-primary {
-        text-align: center;
-        background: #f4f7ff;
-        color: #1f3f9f;
-        font-weight: 600;
-      }
+      .geo-quick-fill-btn strong { font-weight: 600; }
+      .geo-quick-fill-btn span { color: #5d6475; }
+      .geo-quick-fill-primary { text-align: center; background: #f4f7ff; color: #1f3f9f; font-weight: 600; }
     `;
     document.head.appendChild(style);
 
@@ -238,7 +248,6 @@ const quickFill = (() => {
       if (clickedMarker || panel?.contains(target)) return;
       hidePanel();
     });
-
     document.addEventListener('scroll', positionAllMarkers, true);
     window.addEventListener('resize', positionAllMarkers);
   }
@@ -248,23 +257,42 @@ const quickFill = (() => {
     markers.length = 0;
   }
 
+  function tryDoubleClickFill(field, site) {
+    const mapped = matchFieldByHint(textOf(field), site);
+    if (mapped?.value) {
+      setNativeValue(field, mapped.value);
+      return;
+    }
+    if (site.tags?.length) setNativeValue(field, site.tags.join(', '));
+  }
+
   function addMarkerForField(field, mapped) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'geo-quick-fill-trigger';
-    btn.title = `快速填写：${mapped.label}`;
+    btn.title = t('triggerTitle')(mapped.label);
     btn.textContent = '✦';
 
     btn.addEventListener('mousedown', e => e.preventDefault());
     btn.addEventListener('click', async e => {
       e.preventDefault();
       e.stopPropagation();
+      if (e.detail > 1) return;
       activeField = field;
       activeSite = await getActiveSiteFromStorage();
       if (!activeSite) return;
       buildPanelItems(activeSite);
       panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
       if (panel.style.display !== 'none') positionNearField(activeField, panel, 0, 24);
+    });
+
+    btn.addEventListener('dblclick', async e => {
+      e.preventDefault();
+      e.stopPropagation();
+      activeSite = await getActiveSiteFromStorage();
+      if (!activeSite) return;
+      tryDoubleClickFill(field, activeSite);
+      hidePanel();
     });
 
     document.body.appendChild(btn);
@@ -278,7 +306,6 @@ const quickFill = (() => {
       hidePanel();
       return;
     }
-
     const candidates = [...document.querySelectorAll('input, textarea')]
       .filter(el => !el.disabled && el.type !== 'hidden' && document.body.contains(el));
 
@@ -296,10 +323,10 @@ const quickFill = (() => {
   }
 
   async function init() {
+    await resolveLanguage();
     ensureNodes();
     activeSite = await getActiveSiteFromStorage();
     renderMarkers(activeSite);
-
     observer = new MutationObserver(() => debounceRender(activeSite));
     observer.observe(document.documentElement, { childList: true, subtree: true, attributes: false });
   }

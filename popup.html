@@ -8,80 +8,90 @@
 <body>
   <div class="app">
     <div class="title">GEOCopilot</div>
-    <div class="subtitle">SEO / GEO 自动化助手</div>
+    <div id="subtitle" class="subtitle"></div>
 
     <div class="tabs">
-      <button class="tab active" data-tab="sites">网站管理</button>
-      <button class="tab" data-tab="smart">智能填充</button>
-      <button class="tab" data-tab="manual">手动填充</button>
-      <button class="tab" data-tab="settings">设置</button>
+      <button id="tabSitesBtn" class="tab active" data-tab="sites"></button>
+      <button id="tabSmartBtn" class="tab" data-tab="smart"></button>
+      <button id="tabManualBtn" class="tab" data-tab="manual"></button>
+      <button id="tabSettingsBtn" class="tab" data-tab="settings"></button>
     </div>
 
     <section id="tab-sites" class="panel active">
-      <button class="section-toggle" data-target="savedSitesSection">已保存网站</button>
-      <div id="savedSitesSection" class="section-content">
-        <div id="siteList" class="site-list"></div>
-      </div>
+      <div id="siteList" class="site-list"></div>
 
-      <button class="section-toggle" data-target="addSiteSection">添加网站信息</button>
+      <button id="addSiteToggle" class="section-toggle" data-target="addSiteSection"></button>
       <div id="addSiteSection" class="section-content">
         <div class="form-grid">
-          <label>网站名称 *</label>
-          <input id="siteName" placeholder="输入网站名称" required>
+          <div class="inline-two">
+            <div>
+              <label id="siteNameLabel" for="siteName"></label>
+              <input id="siteName" required>
+            </div>
+            <div>
+              <label id="siteCategoryLabel" for="siteCategory"></label>
+              <input id="siteCategory">
+            </div>
+          </div>
 
-          <label>分类</label>
-          <input id="siteCategory" placeholder="如：技术博客、新闻网站等">
+          <label id="siteUrlLabel" for="siteUrl"></label>
+          <input id="siteUrl" required>
 
-          <label>网站地址 *</label>
-          <input id="siteUrl" placeholder="https://example.com" required>
+          <label id="siteEmailLabel" for="siteEmail"></label>
+          <input id="siteEmail">
 
-          <label>联系邮箱</label>
-          <input id="siteEmail" placeholder="contact@example.com (可选)">
+          <label id="siteShortDescLabel" for="siteShortDesc"></label>
+          <textarea id="siteShortDesc"></textarea>
 
-          <label>简短描述</label>
-          <textarea id="siteShortDesc" placeholder="一句话描述网站特色 (可选)"></textarea>
+          <label id="siteLongDescLabel" for="siteLongDesc"></label>
+          <textarea id="siteLongDesc"></textarea>
 
-          <label>详细描述</label>
-          <textarea id="siteLongDesc" placeholder="详细描述网站内容、特色、服务等 (可选)"></textarea>
-
-          <label>关键词标签</label>
+          <label id="siteTagsLabel" for="siteTagInput"></label>
           <div>
-            <input id="siteTagInput" placeholder="输入关键词后按回车添加">
+            <input id="siteTagInput">
             <div id="siteTags" class="tags"></div>
           </div>
         </div>
-        <button id="addSiteBtn">保存网站</button>
+        <button id="addSiteBtn"></button>
       </div>
     </section>
 
     <section id="tab-smart" class="panel">
-      <p id="matchStatus">正在检测当前网页匹配状态...</p>
-      <button id="smartFillBtn">智能匹配并填充当前网页</button>
+      <p id="matchStatus"></p>
+      <button id="smartFillBtn"></button>
     </section>
 
     <section id="tab-manual" class="panel">
       <div class="row">
-        <label>选择网页字段</label>
+        <label id="fieldSelectLabel" for="fieldSelect"></label>
         <select id="fieldSelect"></select>
       </div>
       <div class="row">
-        <label>选择填充值</label>
+        <label id="valueSelectLabel" for="valueSelect"></label>
         <select id="valueSelect"></select>
       </div>
-      <button id="manualFillBtn">填充选中字段</button>
-      <button id="refreshFieldsBtn" class="secondary">刷新字段列表</button>
+      <button id="manualFillBtn"></button>
+      <button id="refreshFieldsBtn" class="secondary"></button>
     </section>
 
     <section id="tab-settings" class="panel">
       <label class="checkbox">
         <input type="checkbox" id="autoFillOnLoad">
-        打开网页时自动匹配并填充（仅匹配成功时）
+        <span id="autoFillOnLoadLabel"></span>
       </label>
       <label class="checkbox">
         <input type="checkbox" id="preferSidePanel" checked disabled>
-        启用侧边栏模式（右侧 Tab）
+        <span id="preferSidePanelLabel"></span>
       </label>
-      <p class="hint">已支持通过浏览器右侧侧边栏使用插件。</p>
+      <div class="row">
+        <label id="languageLabel" for="languageSelect"></label>
+        <select id="languageSelect">
+          <option value="auto"></option>
+          <option value="zh-CN"></option>
+          <option value="en"></option>
+        </select>
+      </div>
+      <p id="sidePanelHint" class="hint"></p>
     </section>
 
     <div id="status"></div>

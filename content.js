@@ -25,6 +25,27 @@ function setNativeValue(el, value) {
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+const NON_FILLABLE_INPUT_TYPES = new Set([
+  'hidden',
+  'submit',
+  'button',
+  'radio',
+  'checkbox',
+  'file',
+  'image',
+  'reset',
+  'range',
+  'color',
+]);
+
+function isFillableField(el) {
+  if (!el || el.disabled) return false;
+  if (!document.body.contains(el)) return false;
+  if (el.tagName.toLowerCase() === 'textarea') return true;
+  if (el.tagName.toLowerCase() !== 'input') return false;
+  return !NON_FILLABLE_INPUT_TYPES.has((el.type || '').toLowerCase());
+}
+
 const BUILTIN_MATCHING_STRATEGIES = [
   { key: 'name', label: '网站名称', aliases: ['网站名称', 'name', 'title', '站点名称', '网站名'] },
   { key: 'category', label: '分类', aliases: ['分类', 'category', 'type'] },
@@ -74,7 +95,7 @@ function findValueByHint(hint, site, strategies = BUILTIN_MATCHING_STRATEGIES) {
 }
 
 function fillBySite(site, strategies = BUILTIN_MATCHING_STRATEGIES) {
-  const candidates = [...document.querySelectorAll('input, textarea')].filter(el => !el.disabled && el.type !== 'hidden');
+  const candidates = [...document.querySelectorAll('input, textarea')].filter(isFillableField);
   let filled = 0;
   for (const el of candidates) {
     const hint = textOf(el);
@@ -389,8 +410,7 @@ const quickFill = (() => {
       hidePanel();
       return;
     }
-    const candidates = [...document.querySelectorAll('input, textarea')]
-      .filter(el => !el.disabled && el.type !== 'hidden' && document.body.contains(el));
+    const candidates = [...document.querySelectorAll('input, textarea')].filter(isFillableField);
     clearMarkers();
     for (const field of candidates) addMarkerForField(field);
   }
@@ -416,7 +436,7 @@ if (chrome?.runtime?.id) {
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === 'getFields') {
       const fields = [...document.querySelectorAll('input, textarea')]
-        .filter(el => !el.disabled && el.type !== 'hidden')
+        .filter(isFillableField)
         .map((el, idx) => ({ selector: fieldSelector(el, idx), label: textOf(el) || `字段 ${idx + 1}` }));
       sendResponse(fields);
       return;

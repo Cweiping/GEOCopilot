@@ -94,10 +94,15 @@ const I18N = {
     strategyTitle: '智能匹配策略（可维护）',
     addStrategyBtn: '新增策略',
     saveStrategiesBtn: '保存策略',
+    exportStrategiesBtn: '导出规则',
+    importStrategiesBtn: '导入规则',
     strategyField: '字段',
     strategyAlias: '匹配关键词（逗号分隔）',
     strategyDelete: '删除',
     strategiesSaved: '匹配策略已保存',
+    strategiesExported: '匹配策略已导出',
+    strategiesImported: '匹配策略已导入',
+    strategiesImportFail: m => `导入失败：${m}`,
   },
   en: {
     subtitle: 'SEO / GEO Automation Assistant',
@@ -121,10 +126,15 @@ const I18N = {
     strategyTitle: 'Matching Strategies (Editable)',
     addStrategyBtn: 'Add strategy',
     saveStrategiesBtn: 'Save strategies',
+    exportStrategiesBtn: 'Export rules',
+    importStrategiesBtn: 'Import rules',
     strategyField: 'Field',
     strategyAlias: 'Keywords (comma-separated)',
     strategyDelete: 'Delete',
     strategiesSaved: 'Matching strategies saved',
+    strategiesExported: 'Matching strategies exported',
+    strategiesImported: 'Matching strategies imported',
+    strategiesImportFail: m => `Import failed: ${m}`,
   },
 };
 
@@ -163,6 +173,8 @@ function applyI18n() {
   document.getElementById('strategyTitle').textContent = t('strategyTitle');
   document.getElementById('addStrategyBtn').textContent = t('addStrategyBtn');
   document.getElementById('saveStrategiesBtn').textContent = t('saveStrategiesBtn');
+  document.getElementById('exportStrategiesBtn').textContent = t('exportStrategiesBtn');
+  document.getElementById('importStrategiesBtn').textContent = t('importStrategiesBtn');
   document.getElementById('manualFillBtn').textContent = t('manualFillBtn');
   document.getElementById('refreshFieldsBtn').textContent = t('refreshFieldsBtn');
   document.getElementById('autoFillOnLoadLabel').textContent = t('autoFillSetting');
@@ -194,6 +206,24 @@ function normalizeMessageError(error) {
 const getStorage = () => chrome.storage.local.get('geoData');
 const saveStorage = async () => chrome.storage.local.set({ geoData: state });
 const uuid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+function strategyExportPayload() {
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    matchingStrategies: normalizeMatchingStrategies(state.matchingStrategies),
+  };
+}
+
+async function importStrategiesFromFile(file) {
+  if (!file) return;
+  const text = await file.text();
+  const parsed = JSON.parse(text);
+  const imported = normalizeMatchingStrategies(parsed?.matchingStrategies || parsed);
+  state.matchingStrategies = imported;
+  await saveStorage();
+  renderStrategies();
+}
 
 function normalizeMatchingStrategies(strategies) {
   const input = Array.isArray(strategies) && strategies.length ? strategies : BUILTIN_MATCHING_STRATEGIES;
@@ -498,6 +528,34 @@ document.getElementById('saveStrategiesBtn').addEventListener('click', async () 
   await saveStorage();
   renderStrategies();
   setStatus(t('strategiesSaved'));
+});
+document.getElementById('exportStrategiesBtn').addEventListener('click', () => {
+  state.matchingStrategies = normalizeMatchingStrategies(state.matchingStrategies);
+  const blob = new Blob([JSON.stringify(strategyExportPayload(), null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `geocopilot-matching-strategies-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  setStatus(t('strategiesExported'));
+});
+document.getElementById('importStrategiesBtn').addEventListener('click', () => {
+  document.getElementById('importStrategiesInput').click();
+});
+document.getElementById('importStrategiesInput').addEventListener('change', async e => {
+  const [file] = e.target.files || [];
+  try {
+    await importStrategiesFromFile(file);
+    setStatus(t('strategiesImported'));
+  } catch (error) {
+    setStatus(t('strategiesImportFail')(error?.message || String(error)));
+  } finally {
+    e.target.value = '';
+  }
 });
 document.getElementById('autoFillOnLoad').addEventListener('change', async e => {
   state.settings.autoFillOnLoad = e.target.checked; await saveStorage(); setStatus(t('settingsSaved'));

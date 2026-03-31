@@ -199,3 +199,23 @@ button.secondary { background: #7e8799; }
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+
+.inline-two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.inline-two label {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.form-grid > label {
+  margin-top: 2px;
+}
+
+.site-list {
+  margin-bottom: 8px;
+}

@@ -103,6 +103,11 @@ const I18N = {
     strategiesExported: '匹配策略已导出',
     strategiesImported: '匹配策略已导入',
     strategiesImportFail: m => `导入失败：${m}`,
+    quickExportTip: '导出配置',
+    quickImportTip: '导入配置',
+    configExported: '配置与策略已导出',
+    configImported: '配置与策略已导入',
+    configImportFail: m => `配置导入失败：${m}`,
   },
   en: {
     subtitle: 'SEO / GEO Automation Assistant',
@@ -135,6 +140,11 @@ const I18N = {
     strategiesExported: 'Matching strategies exported',
     strategiesImported: 'Matching strategies imported',
     strategiesImportFail: m => `Import failed: ${m}`,
+    quickExportTip: 'Export config',
+    quickImportTip: 'Import config',
+    configExported: 'Config and strategies exported',
+    configImported: 'Config and strategies imported',
+    configImportFail: m => `Config import failed: ${m}`,
   },
 };
 
@@ -175,6 +185,10 @@ function applyI18n() {
   document.getElementById('saveStrategiesBtn').textContent = t('saveStrategiesBtn');
   document.getElementById('exportStrategiesBtn').textContent = t('exportStrategiesBtn');
   document.getElementById('importStrategiesBtn').textContent = t('importStrategiesBtn');
+  document.getElementById('quickExportBtn').title = t('quickExportTip');
+  document.getElementById('quickExportBtn').setAttribute('aria-label', t('quickExportTip'));
+  document.getElementById('quickImportBtn').title = t('quickImportTip');
+  document.getElementById('quickImportBtn').setAttribute('aria-label', t('quickImportTip'));
   document.getElementById('manualFillBtn').textContent = t('manualFillBtn');
   document.getElementById('refreshFieldsBtn').textContent = t('refreshFieldsBtn');
   document.getElementById('autoFillOnLoadLabel').textContent = t('autoFillSetting');
@@ -212,6 +226,49 @@ function strategyExportPayload() {
     version: 1,
     exportedAt: new Date().toISOString(),
     matchingStrategies: normalizeMatchingStrategies(state.matchingStrategies),
+  };
+}
+
+function normalizeImportedState(input) {
+  const payload = input?.geoData || input;
+  const websites = Array.isArray(payload?.websites)
+    ? payload.websites.map(site => ({
+      id: String(site?.id || uuid()),
+      name: String(site?.name || '').trim(),
+      category: String(site?.category || '').trim(),
+      url: String(site?.url || '').trim(),
+      email: String(site?.email || '').trim(),
+      shortDesc: String(site?.shortDesc || '').trim(),
+      longDesc: String(site?.longDesc || '').trim(),
+      tags: Array.isArray(site?.tags) ? site.tags.map(tag => String(tag || '').trim()).filter(Boolean) : [],
+    })).filter(site => site.name && site.url)
+    : [];
+  const activeWebsiteId = websites.some(site => site.id === payload?.activeWebsiteId)
+    ? payload.activeWebsiteId
+    : (websites[0]?.id || null);
+  return {
+    ...DEFAULT_DATA,
+    websites,
+    activeWebsiteId,
+    editingWebsiteId: null,
+    settings: {
+      ...DEFAULT_DATA.settings,
+      ...(payload?.settings || {}),
+    },
+    matchingStrategies: normalizeMatchingStrategies(payload?.matchingStrategies),
+  };
+}
+
+function fullExportPayload() {
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    geoData: {
+      websites: state.websites,
+      activeWebsiteId: state.activeWebsiteId,
+      settings: state.settings,
+      matchingStrategies: normalizeMatchingStrategies(state.matchingStrategies),
+    },
   };
 }
 
@@ -553,6 +610,45 @@ document.getElementById('importStrategiesInput').addEventListener('change', asyn
     setStatus(t('strategiesImported'));
   } catch (error) {
     setStatus(t('strategiesImportFail')(error?.message || String(error)));
+  } finally {
+    e.target.value = '';
+  }
+});
+document.getElementById('quickExportBtn').addEventListener('click', () => {
+  state.matchingStrategies = normalizeMatchingStrategies(state.matchingStrategies);
+  const blob = new Blob([JSON.stringify(fullExportPayload(), null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `geocopilot-config-backup-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  setStatus(t('configExported'));
+});
+document.getElementById('quickImportBtn').addEventListener('click', () => {
+  document.getElementById('quickImportInput').click();
+});
+document.getElementById('quickImportInput').addEventListener('change', async e => {
+  const [file] = e.target.files || [];
+  try {
+    if (!file) return;
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    state = normalizeImportedState(parsed);
+    await saveStorage();
+    clearForm();
+    applyI18n();
+    document.getElementById('languageSelect').value = state.settings.language || 'auto';
+    document.getElementById('autoFillOnLoad').checked = !!state.settings.autoFillOnLoad;
+    renderSites();
+    renderValueOptions();
+    await detectMatch();
+    setStatus(t('configImported'));
+  } catch (error) {
+    setStatus(t('configImportFail')(error?.message || String(error)));
   } finally {
     e.target.value = '';
   }

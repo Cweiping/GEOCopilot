@@ -7,7 +7,14 @@
 </head>
 <body>
   <div class="app">
-    <div class="title">GEOCopilot</div>
+    <div class="top-bar">
+      <div class="title">GEOCopilot</div>
+      <div class="quick-actions">
+        <button id="quickExportBtn" class="icon-btn secondary" type="button" aria-label="导出配置">⤓</button>
+        <button id="quickImportBtn" class="icon-btn secondary" type="button" aria-label="导入配置">⤒</button>
+      </div>
+    </div>
+    <input id="quickImportInput" type="file" accept="application/json" hidden>
     <div id="subtitle" class="subtitle"></div>
 
     <div class="tabs">

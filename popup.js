@@ -14,6 +14,7 @@ const DEFAULT_DATA = {
 };
 
 const STRATEGY_FIELDS = ['name', 'category', 'url', 'email', 'shortDesc', 'longDesc', 'tags'];
+const FEEDBACK_ISSUES_URL = 'https://github.com/Cweiping/GEOCopilot/issues';
 const BUILTIN_MATCHING_STRATEGIES = [
   { key: 'name', label: '网站名称', aliases: ['网站名称', 'name', 'title', '站点名称', '网站名'] },
   { key: 'category', label: '分类', aliases: ['分类', 'category', 'type'] },
@@ -112,6 +113,12 @@ const I18N = {
     quickExportTip: '导出配置',
     quickImportTip: '导入配置',
     sponsorTip: '赞助支持',
+    quickRailSidePanelTip: '侧边栏开关',
+    quickRailSmartFillTip: '智能填充',
+    quickRailSettingsTip: '打开设置',
+    quickRailFeedbackTip: '问题反馈（GitHub Issue）',
+    sidePanelEnabled: '侧边栏已开启',
+    sidePanelDisabled: '侧边栏已关闭',
     configExported: '配置与策略已导出',
     configImported: '配置与策略已导入',
     configImportFail: m => `配置导入失败：${m}`,
@@ -149,6 +156,12 @@ const I18N = {
     quickExportTip: 'Export config',
     quickImportTip: 'Import config',
     sponsorTip: 'Sponsor',
+    quickRailSidePanelTip: 'Toggle side panel',
+    quickRailSmartFillTip: 'Smart fill',
+    quickRailSettingsTip: 'Open settings',
+    quickRailFeedbackTip: 'Feedback (GitHub Issues)',
+    sidePanelEnabled: 'Side panel enabled',
+    sidePanelDisabled: 'Side panel disabled',
     configExported: 'Config and strategies exported',
     configImported: 'Config and strategies imported',
     configImportFail: m => `Config import failed: ${m}`,
@@ -160,6 +173,7 @@ let pendingTags = [];
 let contextMenuEl = null;
 let contextTargetId = null;
 let lang = 'zh-CN';
+let quickRailExpandTimer = null;
 
 const tabs = [...document.querySelectorAll('.tab')];
 const panels = [...document.querySelectorAll('.panel')];
@@ -196,6 +210,11 @@ function applyI18n() {
   document.getElementById('quickExportBtn').setAttribute('data-tooltip', t('quickExportTip'));
   document.getElementById('quickImportBtn').setAttribute('aria-label', t('quickImportTip'));
   document.getElementById('quickImportBtn').setAttribute('data-tooltip', t('quickImportTip'));
+  document.getElementById('railSidePanelToggleBtn').setAttribute('title', t('quickRailSidePanelTip'));
+  document.getElementById('railSmartFillBtn').setAttribute('title', t('quickRailSmartFillTip'));
+  document.getElementById('railSettingsBtn').setAttribute('title', t('quickRailSettingsTip'));
+  document.getElementById('railFeedbackLink').setAttribute('title', t('quickRailFeedbackTip'));
+  document.getElementById('railFeedbackLink').setAttribute('href', FEEDBACK_ISSUES_URL);
   document.getElementById('manualFillBtn').textContent = t('manualFillBtn');
   document.getElementById('refreshFieldsBtn').textContent = t('refreshFieldsBtn');
   document.getElementById('enableWebFillLabel').textContent = t('enableWebFillSetting');
@@ -204,7 +223,6 @@ function applyI18n() {
   document.getElementById('preferSidePanelLabel').textContent = t('sidePanelSetting');
   document.getElementById('languageLabel').textContent = t('languageLabel');
   document.getElementById('themeLabel').textContent = t('themeLabel');
-  document.getElementById('sidePanelHint').textContent = t('sidePanelHint');
   document.getElementById('languageSelect').options[0].textContent = t('languageAuto');
   document.getElementById('languageSelect').options[1].textContent = t('languageZh');
   document.getElementById('languageSelect').options[2].textContent = t('languageEn');
@@ -226,6 +244,7 @@ function applyI18n() {
 }
 
 function setStatus(message) { statusEl.textContent = message || ''; }
+function clearStatus() { setStatus(''); }
 function normalizeMessageError(error) {
   const message = error?.message || String(error || '');
   if (message.includes('Could not establish connection. Receiving end does not exist.')) return t('noInjected');
@@ -234,6 +253,12 @@ function normalizeMessageError(error) {
 const getStorage = () => chrome.storage.local.get('geoData');
 const saveStorage = async () => chrome.storage.local.set({ geoData: state });
 const uuid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+document.addEventListener('click', event => {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  if (target.closest('button, .tab, a')) clearStatus();
+}, true);
 
 function normalizeImportedState(input) {
   const payload = input?.geoData || input;
@@ -313,10 +338,13 @@ function applySettingsControls() {
   const manualTab = document.getElementById('tabManualBtn');
   const tabSmartPanel = document.getElementById('tab-smart');
   const tabManualPanel = document.getElementById('tab-manual');
+  const railSmartFillBtn = document.getElementById('railSmartFillBtn');
+  const railSidePanelToggleBtn = document.getElementById('railSidePanelToggleBtn');
 
   const disableFillActions = !webFillEnabled || !allFeaturesEnabled;
-  [smartBtn, manualBtn, refreshBtn].forEach(el => { if (el) el.disabled = disableFillActions; });
+  [smartBtn, manualBtn, refreshBtn, railSmartFillBtn].forEach(el => { if (el) el.disabled = disableFillActions; });
   if (autoFillToggle) autoFillToggle.disabled = !webFillEnabled;
+  if (railSidePanelToggleBtn) railSidePanelToggleBtn.classList.toggle('is-active', state.settings.preferSidePanel !== false);
   [smartTab, manualTab].forEach(el => { if (el) el.disabled = !allFeaturesEnabled; });
 
   if (!allFeaturesEnabled) {
@@ -452,6 +480,25 @@ function bindSectionToggle() {
   });
 }
 
+function expandQuickRailFor3s() {
+  const rail = document.querySelector('.quick-rail');
+  if (!rail) return;
+  rail.classList.add('is-expanded');
+  clearTimeout(quickRailExpandTimer);
+  quickRailExpandTimer = setTimeout(() => {
+    rail.classList.remove('is-expanded');
+  }, 3000);
+}
+
+function collapseQuickRailSoon(delay = 200) {
+  const rail = document.querySelector('.quick-rail');
+  if (!rail) return;
+  clearTimeout(quickRailExpandTimer);
+  quickRailExpandTimer = setTimeout(() => {
+    rail.classList.remove('is-expanded');
+  }, delay);
+}
+
 function showSiteContextMenu(x, y, siteId) {
   hideContextMenu();
   contextTargetId = siteId;
@@ -475,6 +522,7 @@ async function init() {
   document.getElementById('enableWebFill').checked = state.settings.enableWebFill !== false;
   document.getElementById('enableAllFeatures').checked = state.settings.enableAllFeatures !== false;
   document.getElementById('autoFillOnLoad').checked = !!state.settings.autoFillOnLoad;
+  document.getElementById('railFeedbackLink').href = FEEDBACK_ISSUES_URL;
   applySettingsControls();
   applyTheme();
   renderSites();
@@ -571,7 +619,7 @@ document.addEventListener('click', async e => {
   if (!e.target.closest('.site-context-menu')) hideContextMenu();
 });
 
-document.getElementById('smartFillBtn').addEventListener('click', async () => {
+async function runSmartFill() {
   if (state.settings.enableAllFeatures === false) { setStatus(t('allFeaturesDisabled')); return; }
   if (state.settings.enableWebFill === false) { setStatus(t('webFillDisabled')); return; }
   const site = activeSite();
@@ -583,7 +631,43 @@ document.getElementById('smartFillBtn').addEventListener('click', async () => {
     }));
     setStatus(result?.filled ? t('smartFillDone')(result.filled) : t('smartFillNoMatch'));
   } catch (e) { setStatus(t('smartFillFail')(normalizeMessageError(e))); }
+}
+
+document.getElementById('smartFillBtn').addEventListener('click', runSmartFill);
+
+document.getElementById('railSmartFillBtn').addEventListener('click', async () => {
+  document.getElementById('tabSmartBtn').click();
+  await runSmartFill();
 });
+
+document.getElementById('railSettingsBtn').addEventListener('click', () => {
+  document.getElementById('tabSettingsBtn').click();
+});
+
+document.getElementById('railSidePanelToggleBtn').addEventListener('click', async () => {
+  try {
+    await withActiveTab(async (_tabId, _tabUrl) => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const enabled = state.settings.preferSidePanel === false;
+      await chrome.runtime.sendMessage({
+        type: 'toggleSidePanel',
+        payload: { enabled, tabId: tab?.id, windowId: tab?.windowId },
+      });
+      state.settings.preferSidePanel = enabled;
+      await saveStorage();
+      applySettingsControls();
+      setStatus(enabled ? t('sidePanelEnabled') : t('sidePanelDisabled'));
+    });
+  } catch (error) {
+    setStatus(normalizeMessageError(error));
+  }
+});
+
+const quickRailEl = document.querySelector('.quick-rail');
+const railSmartFillBtn = document.getElementById('railSmartFillBtn');
+quickRailEl?.addEventListener('mouseenter', expandQuickRailFor3s);
+quickRailEl?.addEventListener('mouseleave', () => collapseQuickRailSoon(160));
+railSmartFillBtn?.addEventListener('mouseenter', expandQuickRailFor3s);
 
 document.getElementById('manualFillBtn').addEventListener('click', async () => {
   if (state.settings.enableAllFeatures === false) { setStatus(t('allFeaturesDisabled')); return; }

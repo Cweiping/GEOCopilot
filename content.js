@@ -25,35 +25,60 @@ function setNativeValue(el, value) {
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-function getFieldMappings(site) {
-  return [
-    { key: 'name', label: '网站名称', keys: ['网站名称', 'name', 'title', '站点名称', '网站名'], value: site.name },
-    { key: 'category', label: '分类', keys: ['分类', 'category', 'type'], value: site.category },
-    { key: 'url', label: '网站地址', keys: ['网址', 'url', 'link', 'site', 'homepage', 'domain', '网站地址'], value: site.url },
-    { key: 'email', label: '联系邮箱', keys: ['邮箱', 'email', 'mail', '联系'], value: site.email },
-    { key: 'shortDesc', label: '简短描述', keys: ['简短描述', 'short', 'slogan', 'summary', '一句话'], value: site.shortDesc },
-    { key: 'longDesc', label: '详细描述', keys: ['详细描述', 'long', 'detail', 'description', '内容介绍', '简介', '描述'], value: site.longDesc || site.shortDesc },
-    { key: 'tags', label: '关键词标签', keys: ['关键词', 'tags', 'keyword'], value: (site.tags || []).join(', ') },
-  ];
+const BUILTIN_MATCHING_STRATEGIES = [
+  { key: 'name', label: '网站名称', aliases: ['网站名称', 'name', 'title', '站点名称', '网站名'] },
+  { key: 'category', label: '分类', aliases: ['分类', 'category', 'type'] },
+  { key: 'url', label: '网站地址', aliases: ['网址', 'url', 'link', 'site', 'homepage', 'domain', '网站地址'] },
+  { key: 'email', label: '联系邮箱', aliases: ['邮箱', 'email', 'mail', '联系'] },
+  { key: 'shortDesc', label: '简短描述', aliases: ['简短描述', 'short', 'slogan', 'summary', '一句话'] },
+  { key: 'longDesc', label: '详细描述', aliases: ['详细描述', 'long', 'detail', 'description', '内容介绍', '简介', '描述'] },
+  { key: 'tags', label: '关键词标签', aliases: ['关键词', 'tags', 'keyword'] },
+];
+
+function normalizeMatchingStrategies(strategies) {
+  if (!Array.isArray(strategies) || !strategies.length) return BUILTIN_MATCHING_STRATEGIES;
+  const normalized = strategies
+    .map(item => ({
+      key: item?.key,
+      label: item?.label || item?.key || '',
+      aliases: Array.isArray(item?.aliases) ? item.aliases.map(alias => String(alias || '').trim()).filter(Boolean) : [],
+    }))
+    .filter(item => item.key && item.aliases.length);
+  return normalized.length ? normalized : BUILTIN_MATCHING_STRATEGIES;
 }
 
-function matchFieldByHint(hint, site) {
-  for (const item of getFieldMappings(site)) {
+function valueByKey(site, key) {
+  if (key === 'tags') return (site.tags || []).join(', ');
+  if (key === 'longDesc') return site.longDesc || site.shortDesc || '';
+  return site[key] || '';
+}
+
+function getFieldMappings(site, strategies = BUILTIN_MATCHING_STRATEGIES) {
+  return normalizeMatchingStrategies(strategies).map(item => ({
+    key: item.key,
+    label: item.label,
+    keys: item.aliases,
+    value: valueByKey(site, item.key),
+  }));
+}
+
+function matchFieldByHint(hint, site, strategies = BUILTIN_MATCHING_STRATEGIES) {
+  for (const item of getFieldMappings(site, strategies)) {
     if (item.value && item.keys.some(k => hint.includes(k.toLowerCase()))) return item;
   }
   return null;
 }
 
-function findValueByHint(hint, site) {
-  return matchFieldByHint(hint, site)?.value || '';
+function findValueByHint(hint, site, strategies = BUILTIN_MATCHING_STRATEGIES) {
+  return matchFieldByHint(hint, site, strategies)?.value || '';
 }
 
-function fillBySite(site) {
+function fillBySite(site, strategies = BUILTIN_MATCHING_STRATEGIES) {
   const candidates = [...document.querySelectorAll('input, textarea')].filter(el => !el.disabled && el.type !== 'hidden');
   let filled = 0;
   for (const el of candidates) {
     const hint = textOf(el);
-    const value = findValueByHint(hint, site);
+    const value = findValueByHint(hint, site, strategies);
     if (value && !el.value) {
       setNativeValue(el, value);
       filled += 1;
@@ -92,12 +117,10 @@ const quickFill = (() => {
     'zh-CN': {
       header: '快速填写',
       fillPage: '智能填充整页',
-      triggerTitle: label => `快速填写：${label}`,
     },
     en: {
       header: 'Quick Fill',
       fillPage: 'Smart fill whole page',
-      triggerTitle: label => `Quick fill: ${label}`,
     },
   };
 
@@ -138,14 +161,16 @@ const quickFill = (() => {
     node.style.zIndex = '2147483647';
   }
 
+  function positionPanel() { if (panel?.style.display !== 'none' && activeField) positionNearField(activeField, panel, 0, 24); }
+
   function positionAllMarkers() {
     markers.forEach(({ field, btn }) => positionNearField(field, btn));
-    if (panel?.style.display !== 'none' && activeField) positionNearField(activeField, panel, 0, 24);
+    positionPanel();
   }
 
-  function availableSiteFields(site) {
+  function availableSiteFields(site, strategies = BUILTIN_MATCHING_STRATEGIES) {
     if (!site) return [];
-    return getFieldMappings(site).filter(item => !!item.value);
+    return getFieldMappings(site, strategies).filter(item => !!item.value);
   }
 
   async function getActiveSiteFromStorage() {
@@ -154,7 +179,56 @@ const quickFill = (() => {
     return data.websites.find(item => item.id === data.activeWebsiteId) || data.websites[0];
   }
 
-  function buildPanelItems(site) {
+  function fieldSignature(field) {
+    const hint = textOf(field).trim();
+    if (hint) return hint;
+    return `${field.tagName.toLowerCase()}::${field.name || field.id || field.placeholder || ''}`;
+  }
+
+  function pageKey() {
+    try {
+      return new URL(location.href).hostname.replace(/^www\./, '');
+    } catch {
+      return 'unknown';
+    }
+  }
+
+  async function recordLearnedStrategy(siteId, signature, fieldKey) {
+    if (!siteId || !signature || !fieldKey) return;
+    const data = await safeGetGeoData() || {};
+    const learnedMappings = data.learnedMappings || {};
+    if (!learnedMappings[siteId]) learnedMappings[siteId] = {};
+    const host = pageKey();
+    if (!learnedMappings[siteId][host]) learnedMappings[siteId][host] = {};
+    learnedMappings[siteId][host][signature] = fieldKey;
+    await chrome.storage.local.set({ geoData: { ...data, learnedMappings } });
+  }
+
+  function learnedFieldKey(data, siteId, signature) {
+    const host = pageKey();
+    return data?.learnedMappings?.[siteId]?.[host]?.[signature] || null;
+  }
+
+  async function tryAutoFillByStrategy(field, site, data) {
+    if (!field || !site || field.value) return { filled: false };
+    const signature = fieldSignature(field);
+    const strategies = normalizeMatchingStrategies(data?.matchingStrategies);
+    const fields = availableSiteFields(site, strategies);
+    const learnedKey = learnedFieldKey(data, site.id, signature);
+    const learned = learnedKey ? fields.find(item => item.key === learnedKey && item.value) : null;
+    if (learned) {
+      setNativeValue(field, learned.value);
+      return { filled: true, signature };
+    }
+    const mapped = matchFieldByHint(signature, site, strategies);
+    if (mapped?.value) {
+      setNativeValue(field, mapped.value);
+      return { filled: true, signature };
+    }
+    return { filled: false, signature };
+  }
+
+  function buildPanelItems(site, signature, strategies = BUILTIN_MATCHING_STRATEGIES) {
     if (!panel) return;
     panel.innerHTML = '';
 
@@ -177,7 +251,7 @@ const quickFill = (() => {
     });
     panel.appendChild(fillAllBtn);
 
-    for (const item of availableSiteFields(site)) {
+    for (const item of availableSiteFields(site, strategies)) {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'geo-quick-fill-btn';
@@ -187,6 +261,9 @@ const quickFill = (() => {
         e.preventDefault();
         if (!activeField) return;
         setNativeValue(activeField, item.value);
+        recordLearnedStrategy(site.id, signature, item.key).catch(error => {
+          console.warn('GEOCopilot: record learned mapping failed', error);
+        });
         hidePanel();
       });
       panel.appendChild(btn);
@@ -267,55 +344,40 @@ const quickFill = (() => {
     markers.length = 0;
   }
 
-  function tryDoubleClickFill(field, site) {
-    const mapped = matchFieldByHint(textOf(field), site);
-    if (mapped?.value) {
-      setNativeValue(field, mapped.value);
-      return;
+  async function handleMarkerClick(field) {
+    activeField = field;
+    try {
+      const data = await safeGetGeoData();
+      activeSite = await getActiveSiteFromStorage();
+      if (!activeSite) {
+        hidePanel();
+        return;
+      }
+      const attempt = await tryAutoFillByStrategy(activeField, activeSite, data);
+      if (attempt.filled) {
+        hidePanel();
+        return;
+      }
+      buildPanelItems(activeSite, attempt.signature, normalizeMatchingStrategies(data?.matchingStrategies));
+      panel.style.display = 'flex';
+      positionPanel();
+    } catch (error) {
+      console.warn('GEOCopilot: marker click fill failed', error);
     }
-    if (site.tags?.length) setNativeValue(field, site.tags.join(', '));
   }
 
-  function addMarkerForField(field, mapped) {
-    let clickTimer = null;
+  function addMarkerForField(field) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'geo-quick-fill-trigger';
-    btn.title = t('triggerTitle')(mapped.label);
+    btn.title = t('header');
     btn.textContent = '✦';
-
     btn.addEventListener('mousedown', e => e.preventDefault());
-    btn.addEventListener('click', async e => {
+    btn.addEventListener('click', e => {
       e.preventDefault();
       e.stopPropagation();
-      if (e.detail > 1) return;
-      clearTimeout(clickTimer);
-      clickTimer = setTimeout(() => {
-        (async () => {
-          activeField = field;
-          activeSite = await getActiveSiteFromStorage();
-          if (!activeSite) return;
-          buildPanelItems(activeSite);
-          panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
-          if (panel.style.display !== 'none') positionNearField(activeField, panel, 0, 24);
-        })().catch(error => console.warn('GEOCopilot: quick fill click failed', error));
-      }, 220);
+      handleMarkerClick(field);
     });
-
-    btn.addEventListener('dblclick', async e => {
-      e.preventDefault();
-      e.stopPropagation();
-      clearTimeout(clickTimer);
-      try {
-        activeSite = await getActiveSiteFromStorage();
-        if (!activeSite) return;
-        tryDoubleClickFill(field, activeSite);
-        hidePanel();
-      } catch (error) {
-        console.warn('GEOCopilot: quick fill double click failed', error);
-      }
-    });
-
     document.body.appendChild(btn);
     markers.push({ field, btn });
     positionNearField(field, btn);
@@ -329,13 +391,8 @@ const quickFill = (() => {
     }
     const candidates = [...document.querySelectorAll('input, textarea')]
       .filter(el => !el.disabled && el.type !== 'hidden' && document.body.contains(el));
-
     clearMarkers();
-    for (const field of candidates) {
-      const mapped = matchFieldByHint(textOf(field), site);
-      if (!mapped?.value) continue;
-      addMarkerForField(field, mapped);
-    }
+    for (const field of candidates) addMarkerForField(field);
   }
 
   function debounceRender(site) {
@@ -372,7 +429,7 @@ if (chrome?.runtime?.id) {
     }
 
     if (msg.type === 'smartFill') {
-      const filled = fillBySite(msg.payload.site);
+      const filled = fillBySite(msg.payload.site, normalizeMatchingStrategies(msg.payload?.strategies));
       sendResponse({ filled });
       return;
     }

@@ -7,7 +7,19 @@ const DEFAULT_DATA = {
     preferSidePanel: true,
     language: 'auto',
   },
+  matchingStrategies: [],
 };
+
+const STRATEGY_FIELDS = ['name', 'category', 'url', 'email', 'shortDesc', 'longDesc', 'tags'];
+const BUILTIN_MATCHING_STRATEGIES = [
+  { key: 'name', label: '网站名称', aliases: ['网站名称', 'name', 'title', '站点名称', '网站名'] },
+  { key: 'category', label: '分类', aliases: ['分类', 'category', 'type'] },
+  { key: 'url', label: '网站地址', aliases: ['网址', 'url', 'link', 'site', 'homepage', 'domain', '网站地址'] },
+  { key: 'email', label: '联系邮箱', aliases: ['邮箱', 'email', 'mail', '联系'] },
+  { key: 'shortDesc', label: '简短描述', aliases: ['简短描述', 'short', 'slogan', 'summary', '一句话'] },
+  { key: 'longDesc', label: '详细描述', aliases: ['详细描述', 'long', 'detail', 'description', '内容介绍', '简介', '描述'] },
+  { key: 'tags', label: '关键词标签', aliases: ['关键词', 'tags', 'keyword'] },
+];
 
 const I18N = {
   'zh-CN': {
@@ -79,6 +91,13 @@ const I18N = {
     menuSetDefault: '设为默认',
     menuEdit: '编辑',
     menuDelete: '删除',
+    strategyTitle: '智能匹配策略（可维护）',
+    addStrategyBtn: '新增策略',
+    saveStrategiesBtn: '保存策略',
+    strategyField: '字段',
+    strategyAlias: '匹配关键词（逗号分隔）',
+    strategyDelete: '删除',
+    strategiesSaved: '匹配策略已保存',
   },
   en: {
     subtitle: 'SEO / GEO Automation Assistant',
@@ -99,6 +118,13 @@ const I18N = {
       name: 'Site Name', category: 'Category', url: 'Site URL', email: 'Contact Email', shortDesc: 'Short Description', longDesc: 'Long Description', tags: 'Keyword Tags (comma-joined)',
     },
     menuSetDefault: 'Set as default', menuEdit: 'Edit', menuDelete: 'Delete',
+    strategyTitle: 'Matching Strategies (Editable)',
+    addStrategyBtn: 'Add strategy',
+    saveStrategiesBtn: 'Save strategies',
+    strategyField: 'Field',
+    strategyAlias: 'Keywords (comma-separated)',
+    strategyDelete: 'Delete',
+    strategiesSaved: 'Matching strategies saved',
   },
 };
 
@@ -134,6 +160,9 @@ function applyI18n() {
   document.getElementById('fieldSelectLabel').textContent = t('fieldSelectLabel');
   document.getElementById('valueSelectLabel').textContent = t('valueSelectLabel');
   document.getElementById('smartFillBtn').textContent = t('smartFillBtn');
+  document.getElementById('strategyTitle').textContent = t('strategyTitle');
+  document.getElementById('addStrategyBtn').textContent = t('addStrategyBtn');
+  document.getElementById('saveStrategiesBtn').textContent = t('saveStrategiesBtn');
   document.getElementById('manualFillBtn').textContent = t('manualFillBtn');
   document.getElementById('refreshFieldsBtn').textContent = t('refreshFieldsBtn');
   document.getElementById('autoFillOnLoadLabel').textContent = t('autoFillSetting');
@@ -153,6 +182,7 @@ function applyI18n() {
   document.getElementById('siteTagInput').placeholder = t('tagPlaceholder');
   document.getElementById('addSiteBtn').textContent = state.editingWebsiteId ? t('updateSite') : t('saveSite');
   document.getElementById('matchStatus').textContent = t('matchChecking');
+  renderStrategies();
 }
 
 function setStatus(message) { statusEl.textContent = message || ''; }
@@ -164,6 +194,42 @@ function normalizeMessageError(error) {
 const getStorage = () => chrome.storage.local.get('geoData');
 const saveStorage = async () => chrome.storage.local.set({ geoData: state });
 const uuid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+function normalizeMatchingStrategies(strategies) {
+  const input = Array.isArray(strategies) && strategies.length ? strategies : BUILTIN_MATCHING_STRATEGIES;
+  const normalized = input
+    .map(item => ({
+      key: STRATEGY_FIELDS.includes(item?.key) ? item.key : null,
+      label: String(item?.label || '').trim() || item?.key || '',
+      aliases: Array.isArray(item?.aliases)
+        ? item.aliases.map(alias => String(alias || '').trim()).filter(Boolean)
+        : String(item?.aliases || '').split(',').map(alias => alias.trim()).filter(Boolean),
+    }))
+    .filter(item => item.key && item.aliases.length);
+  return normalized.length ? normalized : structuredClone(BUILTIN_MATCHING_STRATEGIES);
+}
+
+function strategyFieldLabel(key) {
+  return t('valueLabels')[key] || key;
+}
+
+function renderStrategies() {
+  const list = document.getElementById('strategyList');
+  list.innerHTML = '';
+  state.matchingStrategies = normalizeMatchingStrategies(state.matchingStrategies);
+  state.matchingStrategies.forEach((item, idx) => {
+    const row = document.createElement('div');
+    row.className = 'strategy-item';
+    row.innerHTML = `
+      <select data-role="key" data-index="${idx}">
+        ${STRATEGY_FIELDS.map(key => `<option value="${key}" ${item.key === key ? 'selected' : ''}>${strategyFieldLabel(key)}</option>`).join('')}
+      </select>
+      <input data-role="aliases" data-index="${idx}" placeholder="${t('strategyAlias')}" value="${item.aliases.join(', ')}">
+      <button data-role="delete" data-index="${idx}" type="button">${t('strategyDelete')}</button>
+    `;
+    list.appendChild(row);
+  });
+}
 
 function renderTags() {
   const wrap = document.getElementById('siteTags');
@@ -279,6 +345,7 @@ function showSiteContextMenu(x, y, siteId) {
 async function init() {
   const saved = (await getStorage()).geoData;
   state = saved ? { ...DEFAULT_DATA, ...saved, settings: { ...DEFAULT_DATA.settings, ...(saved.settings || {}) } } : structuredClone(DEFAULT_DATA);
+  state.matchingStrategies = normalizeMatchingStrategies(state.matchingStrategies);
   if (!state.activeWebsiteId && state.websites[0]) { state.activeWebsiteId = state.websites[0].id; await saveStorage(); }
   applyI18n();
   document.getElementById('languageSelect').value = state.settings.language || 'auto';
@@ -377,7 +444,10 @@ document.getElementById('smartFillBtn').addEventListener('click', async () => {
   const site = activeSite();
   if (!site) { setStatus(t('addSiteFirst')); return; }
   try {
-    const result = await withActiveTab(tabId => chrome.tabs.sendMessage(tabId, { type: 'smartFill', payload: { site } }));
+    const result = await withActiveTab(tabId => chrome.tabs.sendMessage(tabId, {
+      type: 'smartFill',
+      payload: { site, strategies: normalizeMatchingStrategies(state.matchingStrategies) },
+    }));
     setStatus(result?.filled ? t('smartFillDone')(result.filled) : t('smartFillNoMatch'));
   } catch (e) { setStatus(t('smartFillFail')(normalizeMessageError(e))); }
 });
@@ -396,6 +466,39 @@ document.getElementById('manualFillBtn').addEventListener('click', async () => {
 });
 
 document.getElementById('refreshFieldsBtn').addEventListener('click', refreshFieldList);
+document.getElementById('addStrategyBtn').addEventListener('click', () => {
+  state.matchingStrategies = normalizeMatchingStrategies(state.matchingStrategies);
+  state.matchingStrategies.push({ key: 'name', label: strategyFieldLabel('name'), aliases: ['name'] });
+  renderStrategies();
+});
+document.getElementById('strategyList').addEventListener('input', e => {
+  const idx = Number(e.target.dataset.index);
+  if (!Number.isInteger(idx) || !state.matchingStrategies[idx]) return;
+  if (e.target.dataset.role === 'aliases') {
+    state.matchingStrategies[idx].aliases = e.target.value.split(',').map(item => item.trim()).filter(Boolean);
+  }
+});
+document.getElementById('strategyList').addEventListener('change', e => {
+  const idx = Number(e.target.dataset.index);
+  if (!Number.isInteger(idx) || !state.matchingStrategies[idx]) return;
+  if (e.target.dataset.role === 'key') {
+    state.matchingStrategies[idx].key = e.target.value;
+    state.matchingStrategies[idx].label = strategyFieldLabel(e.target.value);
+  }
+});
+document.getElementById('strategyList').addEventListener('click', e => {
+  if (e.target.dataset.role !== 'delete') return;
+  const idx = Number(e.target.dataset.index);
+  if (!Number.isInteger(idx)) return;
+  state.matchingStrategies.splice(idx, 1);
+  renderStrategies();
+});
+document.getElementById('saveStrategiesBtn').addEventListener('click', async () => {
+  state.matchingStrategies = normalizeMatchingStrategies(state.matchingStrategies);
+  await saveStorage();
+  renderStrategies();
+  setStatus(t('strategiesSaved'));
+});
 document.getElementById('autoFillOnLoad').addEventListener('change', async e => {
   state.settings.autoFillOnLoad = e.target.checked; await saveStorage(); setStatus(t('settingsSaved'));
 });

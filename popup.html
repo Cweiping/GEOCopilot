@@ -10,8 +10,14 @@
     <div class="top-bar">
       <div class="title">GEOCopilot</div>
       <div class="quick-actions">
-        <button id="quickExportBtn" class="icon-btn secondary" type="button" aria-label="导出配置">⤓</button>
-        <button id="quickImportBtn" class="icon-btn secondary" type="button" aria-label="导入配置">⤒</button>
+        <button id="quickExportBtn" class="icon-btn quick-action secondary" type="button" aria-label="导出配置">
+          <span class="icon" aria-hidden="true">⤓</span>
+          <span id="quickExportLabel" class="action-label"></span>
+        </button>
+        <button id="quickImportBtn" class="icon-btn quick-action secondary" type="button" aria-label="导入配置">
+          <span class="icon" aria-hidden="true">⤒</span>
+          <span id="quickImportLabel" class="action-label"></span>
+        </button>
       </div>
     </div>
     <input id="quickImportInput" type="file" accept="application/json" hidden>
@@ -71,11 +77,6 @@
           <strong id="strategyTitle"></strong>
           <button id="addStrategyBtn" class="secondary" type="button"></button>
         </div>
-        <div class="strategy-actions">
-          <button id="exportStrategiesBtn" class="secondary" type="button"></button>
-          <button id="importStrategiesBtn" class="secondary" type="button"></button>
-          <input id="importStrategiesInput" type="file" accept="application/json" hidden>
-        </div>
         <div id="strategyList" class="strategy-list"></div>
         <button id="saveStrategiesBtn" type="button"></button>
       </div>
@@ -109,6 +110,14 @@
           <option value="auto"></option>
           <option value="zh-CN"></option>
           <option value="en"></option>
+        </select>
+      </div>
+      <div class="row">
+        <label id="themeLabel" for="themeSelect"></label>
+        <select id="themeSelect">
+          <option value="auto"></option>
+          <option value="light"></option>
+          <option value="dark"></option>
         </select>
       </div>
       <p id="sidePanelHint" class="hint"></p>

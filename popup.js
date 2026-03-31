@@ -6,6 +6,7 @@ const DEFAULT_DATA = {
     autoFillOnLoad: true,
     preferSidePanel: true,
     language: 'auto',
+    theme: 'auto',
   },
   matchingStrategies: [],
 };
@@ -61,6 +62,10 @@ const I18N = {
     autoFillSetting: '打开网页时自动匹配并填充（仅匹配成功时）',
     sidePanelSetting: '启用侧边栏模式（右侧 Tab）',
     languageLabel: '界面语言',
+    themeLabel: '主题外观',
+    themeAuto: '跟随系统',
+    themeLight: '浅色',
+    themeDark: '深色',
     languageAuto: '跟随浏览器',
     languageZh: '中文',
     languageEn: 'English',
@@ -94,17 +99,14 @@ const I18N = {
     strategyTitle: '智能匹配策略（可维护）',
     addStrategyBtn: '新增策略',
     saveStrategiesBtn: '保存策略',
-    exportStrategiesBtn: '导出规则',
-    importStrategiesBtn: '导入规则',
     strategyField: '字段',
     strategyAlias: '匹配关键词（逗号分隔）',
     strategyDelete: '删除',
     strategiesSaved: '匹配策略已保存',
-    strategiesExported: '匹配策略已导出',
-    strategiesImported: '匹配策略已导入',
-    strategiesImportFail: m => `导入失败：${m}`,
     quickExportTip: '导出配置',
     quickImportTip: '导入配置',
+    quickExportLabel: '导出',
+    quickImportLabel: '导入',
     configExported: '配置与策略已导出',
     configImported: '配置与策略已导入',
     configImportFail: m => `配置导入失败：${m}`,
@@ -118,7 +120,7 @@ const I18N = {
     defaultTag: 'Default', notDefaultTag: 'Not Default', matchChecking: 'Checking page match status...', noSiteForMatch: 'No site config yet. Please add one in Site Management.',
     matched: site => `Matched site: ${site}. Smart fill is ready.`, notMatched: url => `No matching rule for current page (${url || 'unknown page'}). You can still use manual fill.`,
     smartFillBtn: 'Smart match and fill current page', fieldSelectLabel: 'Select page field', valueSelectLabel: 'Select value', manualFillBtn: 'Fill selected field', refreshFieldsBtn: 'Refresh field list',
-    autoFillSetting: 'Auto match and fill on page load (only when matched)', sidePanelSetting: 'Enable side panel mode (right-side tab)', languageLabel: 'Language', languageAuto: 'Follow browser', languageZh: 'Chinese', languageEn: 'English', sidePanelHint: 'Side panel mode is supported from the browser right panel.',
+    autoFillSetting: 'Auto match and fill on page load (only when matched)', sidePanelSetting: 'Enable side panel mode (right-side tab)', languageLabel: 'Language', themeLabel: 'Theme', themeAuto: 'Follow system', themeLight: 'Light', themeDark: 'Dark', languageAuto: 'Follow browser', languageZh: 'Chinese', languageEn: 'English', sidePanelHint: 'Side panel mode is supported from the browser right panel.',
     fillRequired: 'Required: Site Name and Site URL', siteSaved: 'Site saved', siteUpdated: 'Site updated', siteDeleted: 'Site deleted', defaultUpdated: 'Default site updated', settingsSaved: 'Settings saved',
     chooseFieldValue: 'Please choose a field and a value', manualFillSuccess: 'Manual fill succeeded', manualFillFail: 'Manual fill failed', addSiteFirst: 'Please add a site config first',
     smartFillDone: n => `Auto-filled ${n} field(s)`, smartFillNoMatch: 'No fillable field matched', noAvailableField: 'No fillable field found', addSiteFirstOption: 'Add a site first',
@@ -131,17 +133,14 @@ const I18N = {
     strategyTitle: 'Matching Strategies (Editable)',
     addStrategyBtn: 'Add strategy',
     saveStrategiesBtn: 'Save strategies',
-    exportStrategiesBtn: 'Export rules',
-    importStrategiesBtn: 'Import rules',
     strategyField: 'Field',
     strategyAlias: 'Keywords (comma-separated)',
     strategyDelete: 'Delete',
     strategiesSaved: 'Matching strategies saved',
-    strategiesExported: 'Matching strategies exported',
-    strategiesImported: 'Matching strategies imported',
-    strategiesImportFail: m => `Import failed: ${m}`,
     quickExportTip: 'Export config',
     quickImportTip: 'Import config',
+    quickExportLabel: 'Export',
+    quickImportLabel: 'Import',
     configExported: 'Config and strategies exported',
     configImported: 'Config and strategies imported',
     configImportFail: m => `Config import failed: ${m}`,
@@ -183,21 +182,25 @@ function applyI18n() {
   document.getElementById('strategyTitle').textContent = t('strategyTitle');
   document.getElementById('addStrategyBtn').textContent = t('addStrategyBtn');
   document.getElementById('saveStrategiesBtn').textContent = t('saveStrategiesBtn');
-  document.getElementById('exportStrategiesBtn').textContent = t('exportStrategiesBtn');
-  document.getElementById('importStrategiesBtn').textContent = t('importStrategiesBtn');
   document.getElementById('quickExportBtn').title = t('quickExportTip');
   document.getElementById('quickExportBtn').setAttribute('aria-label', t('quickExportTip'));
+  document.getElementById('quickExportLabel').textContent = t('quickExportLabel');
   document.getElementById('quickImportBtn').title = t('quickImportTip');
   document.getElementById('quickImportBtn').setAttribute('aria-label', t('quickImportTip'));
+  document.getElementById('quickImportLabel').textContent = t('quickImportLabel');
   document.getElementById('manualFillBtn').textContent = t('manualFillBtn');
   document.getElementById('refreshFieldsBtn').textContent = t('refreshFieldsBtn');
   document.getElementById('autoFillOnLoadLabel').textContent = t('autoFillSetting');
   document.getElementById('preferSidePanelLabel').textContent = t('sidePanelSetting');
   document.getElementById('languageLabel').textContent = t('languageLabel');
+  document.getElementById('themeLabel').textContent = t('themeLabel');
   document.getElementById('sidePanelHint').textContent = t('sidePanelHint');
   document.getElementById('languageSelect').options[0].textContent = t('languageAuto');
   document.getElementById('languageSelect').options[1].textContent = t('languageZh');
   document.getElementById('languageSelect').options[2].textContent = t('languageEn');
+  document.getElementById('themeSelect').options[0].textContent = t('themeAuto');
+  document.getElementById('themeSelect').options[1].textContent = t('themeLight');
+  document.getElementById('themeSelect').options[2].textContent = t('themeDark');
 
   document.getElementById('siteName').placeholder = t('namePlaceholder');
   document.getElementById('siteCategory').placeholder = t('categoryPlaceholder');
@@ -220,14 +223,6 @@ function normalizeMessageError(error) {
 const getStorage = () => chrome.storage.local.get('geoData');
 const saveStorage = async () => chrome.storage.local.set({ geoData: state });
 const uuid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-function strategyExportPayload() {
-  return {
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    matchingStrategies: normalizeMatchingStrategies(state.matchingStrategies),
-  };
-}
 
 function normalizeImportedState(input) {
   const payload = input?.geoData || input;
@@ -272,16 +267,6 @@ function fullExportPayload() {
   };
 }
 
-async function importStrategiesFromFile(file) {
-  if (!file) return;
-  const text = await file.text();
-  const parsed = JSON.parse(text);
-  const imported = normalizeMatchingStrategies(parsed?.matchingStrategies || parsed);
-  state.matchingStrategies = imported;
-  await saveStorage();
-  renderStrategies();
-}
-
 function normalizeMatchingStrategies(strategies) {
   const input = Array.isArray(strategies) && strategies.length ? strategies : BUILTIN_MATCHING_STRATEGIES;
   const normalized = input
@@ -298,6 +283,16 @@ function normalizeMatchingStrategies(strategies) {
 
 function strategyFieldLabel(key) {
   return t('valueLabels')[key] || key;
+}
+
+function effectiveTheme() {
+  if (state.settings.theme === 'dark') return 'dark';
+  if (state.settings.theme === 'light') return 'light';
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function applyTheme() {
+  document.documentElement.dataset.theme = effectiveTheme();
 }
 
 function renderStrategies() {
@@ -436,7 +431,9 @@ async function init() {
   if (!state.activeWebsiteId && state.websites[0]) { state.activeWebsiteId = state.websites[0].id; await saveStorage(); }
   applyI18n();
   document.getElementById('languageSelect').value = state.settings.language || 'auto';
+  document.getElementById('themeSelect').value = state.settings.theme || 'auto';
   document.getElementById('autoFillOnLoad').checked = !!state.settings.autoFillOnLoad;
+  applyTheme();
   renderSites();
   renderTags();
   renderValueOptions();
@@ -586,34 +583,6 @@ document.getElementById('saveStrategiesBtn').addEventListener('click', async () 
   renderStrategies();
   setStatus(t('strategiesSaved'));
 });
-document.getElementById('exportStrategiesBtn').addEventListener('click', () => {
-  state.matchingStrategies = normalizeMatchingStrategies(state.matchingStrategies);
-  const blob = new Blob([JSON.stringify(strategyExportPayload(), null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const stamp = new Date().toISOString().slice(0, 10);
-  a.href = url;
-  a.download = `geocopilot-matching-strategies-${stamp}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-  setStatus(t('strategiesExported'));
-});
-document.getElementById('importStrategiesBtn').addEventListener('click', () => {
-  document.getElementById('importStrategiesInput').click();
-});
-document.getElementById('importStrategiesInput').addEventListener('change', async e => {
-  const [file] = e.target.files || [];
-  try {
-    await importStrategiesFromFile(file);
-    setStatus(t('strategiesImported'));
-  } catch (error) {
-    setStatus(t('strategiesImportFail')(error?.message || String(error)));
-  } finally {
-    e.target.value = '';
-  }
-});
 document.getElementById('quickExportBtn').addEventListener('click', () => {
   state.matchingStrategies = normalizeMatchingStrategies(state.matchingStrategies);
   const blob = new Blob([JSON.stringify(fullExportPayload(), null, 2)], { type: 'application/json' });
@@ -642,7 +611,9 @@ document.getElementById('quickImportInput').addEventListener('change', async e =
     clearForm();
     applyI18n();
     document.getElementById('languageSelect').value = state.settings.language || 'auto';
+    document.getElementById('themeSelect').value = state.settings.theme || 'auto';
     document.getElementById('autoFillOnLoad').checked = !!state.settings.autoFillOnLoad;
+    applyTheme();
     renderSites();
     renderValueOptions();
     await detectMatch();
@@ -664,6 +635,15 @@ document.getElementById('languageSelect').addEventListener('change', async e => 
   await saveStorage();
   await detectMatch();
   setStatus(t('settingsSaved'));
+});
+document.getElementById('themeSelect').addEventListener('change', async e => {
+  state.settings.theme = e.target.value;
+  applyTheme();
+  await saveStorage();
+  setStatus(t('settingsSaved'));
+});
+window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if ((state.settings.theme || 'auto') === 'auto') applyTheme();
 });
 
 init();

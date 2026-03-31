@@ -11,6 +11,21 @@ chrome.action.onClicked?.addListener(async (tab) => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === 'openSidePanel') {
+    (async () => {
+      const windowId = sender?.tab?.windowId;
+      if (!chrome.sidePanel?.open || windowId === undefined) {
+        sendResponse({ ok: false, error: 'sidePanel open API unavailable' });
+        return;
+      }
+      await chrome.sidePanel.open({ windowId });
+      sendResponse({ ok: true });
+    })().catch(error => {
+      sendResponse({ ok: false, error: error?.message || String(error) });
+    });
+    return true;
+  }
+
   if (message?.type !== 'toggleSidePanel') return;
   const { enabled, tabId, windowId } = message.payload || {};
   (async () => {

@@ -200,6 +200,10 @@ const quickFill = (() => {
     return data.websites.find(item => item.id === data.activeWebsiteId) || data.websites[0];
   }
 
+  function isQuickFillEnabled(data) {
+    return !(data?.settings?.enableAllFeatures === false || data?.settings?.enableWebFill === false);
+  }
+
   function fieldSignature(field) {
     const hint = textOf(field).trim();
     if (hint) return hint;
@@ -422,9 +426,15 @@ const quickFill = (() => {
 
   async function init() {
     await resolveLanguage();
+    const data = await safeGetGeoData();
+    if (!isQuickFillEnabled(data)) {
+      remove();
+      return;
+    }
     ensureNodes();
     activeSite = await getActiveSiteFromStorage();
     renderMarkers(activeSite);
+    observer?.disconnect();
     observer = new MutationObserver(() => debounceRender(activeSite));
     observer.observe(document.documentElement, { childList: true, subtree: true, attributes: false });
   }
@@ -483,3 +493,10 @@ if (chrome?.runtime?.id) {
 })();
 
 quickFill.init().catch(error => console.warn('GEOCopilot: quick fill init failed', error));
+
+if (chrome?.storage?.onChanged) {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !changes.geoData) return;
+    quickFill.init().catch(error => console.warn('GEOCopilot: quick fill refresh failed', error));
+  });
+}

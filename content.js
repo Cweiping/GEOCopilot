@@ -10,6 +10,9 @@ function nearbyHintText(el) {
 }
 
 function textOf(el) {
+  const classNames = Array.from(el?.classList || []).join(' ');
+  const parentClassNames = Array.from(el?.parentElement?.classList || []).join(' ');
+  const parentId = el?.parentElement?.id || '';
   if (el?.tagName?.toLowerCase() === 'iframe') {
     const title = el.getAttribute('title') || '';
     const aria = el.getAttribute('aria-label') || '';
@@ -17,7 +20,7 @@ function textOf(el) {
     const id = el.id || '';
     const label = id ? document.querySelector(`label[for="${CSS.escape(id)}"]`)?.innerText || '' : '';
     const wrapperText = nearbyHintText(el);
-    return `${title} ${aria} ${name} ${id} ${label} ${wrapperText}`.toLowerCase();
+    return `${title} ${aria} ${name} ${id} ${classNames} ${parentId} ${parentClassNames} ${label} ${wrapperText}`.toLowerCase();
   }
   const id = el.id;
   const name = el.name || '';
@@ -25,7 +28,7 @@ function textOf(el) {
   const aria = el.getAttribute('aria-label') || '';
   const label = id ? document.querySelector(`label[for="${CSS.escape(id)}"]`)?.innerText || '' : '';
   const wrapperText = nearbyHintText(el);
-  return `${name} ${placeholder} ${aria} ${label} ${wrapperText}`.toLowerCase();
+  return `${id} ${name} ${placeholder} ${aria} ${classNames} ${parentId} ${parentClassNames} ${label} ${wrapperText}`.toLowerCase();
 }
 
 async function safeGetGeoData() {
@@ -126,7 +129,7 @@ const BUILTIN_MATCHING_STRATEGIES = [
   { key: 'url', label: '网站地址', aliases: ['网址', 'url', 'link', 'site', 'homepage', 'domain', '网站地址', 'location', 'site location'] },
   { key: 'email', label: '联系邮箱', aliases: ['邮箱', 'email', 'mail', '联系'] },
   { key: 'shortDesc', label: '简短描述', aliases: ['简短描述', 'short', 'slogan', 'summary', '一句话'] },
-  { key: 'longDesc', label: '详细描述', aliases: ['详细描述', 'long', 'detail', 'description', '内容介绍', '简介', '描述', '正文', '内容详情', 'editor', 'rich text', 'post', 'content', 'desc', 'addesc'] },
+  { key: 'longDesc', label: '详细描述', aliases: ['详细描述', 'long', 'detail', 'description', '内容介绍', '简介', '描述', '正文', '内容详情', 'editor', 'rich text', 'rich text area', 'tinymce', 'mce-edit-area', 'mceu', 'content_ifr', 'post', 'content', 'desc', 'addesc'] },
   { key: 'tags', label: '关键词标签', aliases: ['关键词', 'tags', 'keyword'] },
 ];
 

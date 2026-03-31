@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "GEOCopilot · SEO提交助手",
+  "name": "GEOCopilot SEO Assistant",
   "version": "1.2.2",
-  "description": "Automate GEO/SEO submissions with GEOCopilot. 使用 GEOCopilot 自动化 GEO/SEO 提交。",
+  "description": "Automate GEO/SEO submissions with GEOCopilot.",
   "permissions": [
     "storage",
     "activeTab",

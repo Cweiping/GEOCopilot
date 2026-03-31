@@ -1,4 +1,4 @@
-# GEOCopilot Chrome Extension / GEOCopilot Chrome 扩展
+# GEOCopilot Chrome Extension
 
 [English](#english) | [中文](#中文)
 
@@ -7,10 +7,99 @@
 ## English
 
 ### Overview
-GEOCopilot is a Chrome extension for GEO/SEO workflow assistance.
+GEOCopilot is a Chrome extension for GEO/SEO submission workflows. It stores reusable site profiles, discovers form fields on target pages, and fills values through either smart matching or manual selection.
+
+### Current Feature Set
+
+#### 1) Site Profile Management
+- Add, edit, and delete multiple site profiles.
+- Mark one profile as **Default** for faster filling.
+- Structured fields per profile:
+  - Site Name
+  - Category
+  - Site URL
+  - Contact Email
+  - Short Description
+  - Long Description
+  - Keyword Tags
+
+#### 2) Smart Fill (Auto Match)
+- Detects candidate form fields on the current page.
+- Uses built-in + custom matching strategies to map page labels/placeholders/names to profile fields.
+- Supports one-click fill for matched fields.
+- Shows match status and fill result count.
+
+#### 3) Manual Fill
+- Pulls detectable page fields into a selector.
+- Lets you choose one page field + one profile value.
+- Fills only the selected target (useful for edge-case forms).
+
+#### 4) Strategy Editor (Custom Matching)
+- Add/edit/delete alias rules per profile field.
+- Persist custom rules in extension storage.
+- Export/import rules together with site data.
+
+#### 5) Settings
+- Auto fill on page load (only when matching succeeds).
+- Side panel mode hint and compatibility support.
+- Language switching (Auto / Chinese / English).
+- Theme switching (Auto / Light / Dark).
+
+#### 6) Config Export / Import
+- Export full config (sites + active site + settings + matching strategies) as JSON.
+- Import JSON to restore data.
+- Includes normalization to guard against malformed inputs.
+
+---
+
+### Custom Matching Strategy Rules
+A strategy item is composed of:
+- `key`: target internal field key (`name`, `category`, `url`, `email`, `shortDesc`, `longDesc`, `tags`)
+- `aliases`: comma-separated keywords used to match page fields
+
+#### Matching Behavior (Practical Rule)
+When GEOCopilot reads a field from a page, it compares the field’s visible label / placeholder / related text with strategy aliases.
+
+If any alias matches, GEOCopilot maps the page field to the strategy `key` and fills the corresponding value from the selected site profile.
+
+#### Recommended Alias Design
+- Keep aliases short and semantic (`website`, `homepage`, `company site`).
+- Cover multilingual variants when needed (`邮箱,email,mail`).
+- Prefer stable domain vocabulary over one-off page wording.
+- Avoid overly broad aliases like `text` or `info` to reduce false positives.
+
+#### Example Strategies
+
+##### Example A: URL field
+- key: `url`
+- aliases: `url, website, site, homepage, domain, official site`
+
+Useful for forms using labels such as:
+- “Website”
+- “Homepage URL”
+- “Official Domain”
+
+##### Example B: Short description field
+- key: `shortDesc`
+- aliases: `tagline, summary, short description, one line intro`
+
+Useful for:
+- “Tagline”
+- “Project Summary”
+- “One-line introduction”
+
+##### Example C: Tags field
+- key: `tags`
+- aliases: `keywords, tags, seo keywords, topic tags`
+
+Useful for:
+- “Keywords”
+- “SEO Keywords”
+- “Topic Tags”
+
+---
 
 ### Release Packaging
-This repository supports one-command packaging for Chrome release upload.
 
 ```bash
 bash scripts/package-chrome-extension.sh
@@ -18,115 +107,161 @@ bash scripts/package-chrome-extension.sh
 
 The script reads the version from `manifest.json` and outputs:
 
-
-> Note: `release/*.zip` artifacts are generated locally/CI and are not committed to git to keep PRs text-only.
-
 ```text
 release/GEOCopilot-chrome-v<version>.zip
 ```
 
-For current version `1.2.2`, the package is:
-
-```text
-release/GEOCopilot-chrome-v1.2.2.zip
-```
+> Note: `release/*.zip` artifacts are generated locally/CI and are not committed to git.
 
 ### GitHub Auto Release (Tag Trigger)
-This repository includes GitHub Actions automation to package and publish release artifacts.
-
 - Trigger: push tag `v<version>` (example: `v1.2.2`)
-- Validation: tag version must match `manifest.json` version
-- Output: release asset `release/GEOCopilot-chrome-v<version>.zip` uploaded to GitHub Releases
-- Guardrail: release commit must be on `main` branch
-- Notes: auto-generate release notes from commit history (relative to previous semver tag)
+- Validation: tag version must match `manifest.json`
+- Output: release asset uploaded to GitHub Releases
+- Guardrail: release commit must be on `main`
 
-Example commands:
-
-```bash
-git tag v1.2.2
-git push origin v1.2.2
-```
-
-### Install in Chrome (Local Test)
+### Local Install in Chrome
 1. Open `chrome://extensions`
 2. Enable **Developer mode**
-3. Unzip the package to a local folder
-4. Click **Load unpacked** and select the extracted folder
+3. Unzip package to a local folder
+4. Click **Load unpacked** and select the folder
 
 ### Publish to Chrome Web Store
 1. Open Chrome Web Store Developer Dashboard
-2. Create/select an extension item
+2. Create/select extension item
 3. Upload `release/GEOCopilot-chrome-v<version>.zip`
 4. Complete listing and submit for review
-
-### Open Source Policy
-This repository follows common open-source community standards:
-- License: MIT (`LICENSE`)
-- Contribution guide: `CONTRIBUTING.md`
-- Code of Conduct: `CODE_OF_CONDUCT.md`
-- Security policy: `SECURITY.md`
-- Support channels: `SUPPORT.md`
 
 ---
 
 ## 中文
 
 ### 项目简介
-GEOCopilot 是一个用于 GEO/SEO 工作流辅助的 Chrome 扩展。
+GEOCopilot 是一个用于 GEO/SEO 提交流程的 Chrome 扩展。它支持站点资料复用、页面字段识别，以及“智能匹配填充 + 手动精确填充”两种方式。
+
+### 当前已实现功能
+
+#### 1）站点资料管理
+- 支持添加 / 编辑 / 删除多个站点资料。
+- 支持设置默认站点，提升高频填报效率。
+- 每个站点可维护以下字段：
+  - 网站名称
+  - 分类
+  - 网站地址
+  - 联系邮箱
+  - 简短描述
+  - 详细描述
+  - 关键词标签
+
+#### 2）智能填充（自动匹配）
+- 自动读取当前页面可填字段。
+- 使用“内置 + 自定义匹配策略”把页面字段映射到站点资料字段。
+- 一键执行填充，并展示命中状态和填充数量。
+
+#### 3）手动填充
+- 可从检测到的页面字段中手动选择目标。
+- 可从站点资料值中手动选择填充值。
+- 适合复杂页面或智能匹配未完全覆盖的场景。
+
+#### 4）匹配策略编辑器
+- 支持新增 / 编辑 / 删除策略项。
+- 每个策略项可配置字段及关键字别名。
+- 策略和站点配置一起持久化存储，可导出/导入。
+
+#### 5）设置项
+- 打开页面后自动匹配并填充（仅匹配成功时触发）。
+- 侧边栏模式提示与兼容。
+- 语言切换（跟随浏览器 / 中文 / English）。
+- 主题切换（跟随系统 / 浅色 / 深色）。
+
+#### 6）配置导入导出
+- 导出完整 JSON（站点、默认站点、设置、匹配策略）。
+- 导入后进行结构规范化，降低异常配置导致的问题。
+
+---
+
+### 自定义匹配填充策略规则（详细）
+
+一个策略项包含两个核心部分：
+- `key`：目标字段键（`name`, `category`, `url`, `email`, `shortDesc`, `longDesc`, `tags`）
+- `aliases`：用于匹配页面字段的别名关键字（逗号分隔）
+
+#### 匹配逻辑（实用描述）
+GEOCopilot 会读取页面字段的标签文本、placeholder、关联说明等信息，并与 `aliases` 逐项比较：
+
+- 只要任一别名命中，即认定该页面字段映射到对应 `key`。
+- 映射后，插件会从当前选中的站点资料中取出对应值进行填充。
+
+#### 别名设计建议
+- 关键字保持短小、语义清晰，如：`website, homepage, domain`。
+- 面向多语言页面时可混合中英文，如：`邮箱,email,mail`。
+- 优先使用稳定业务词，避免一次性页面文案。
+- 避免过宽泛词（如 `text`, `info`），减少误匹配。
+
+#### 策略示例
+
+##### 示例 A：网站地址
+- key: `url`
+- aliases: `url, website, site, homepage, domain, official site`
+
+可覆盖的页面字段文案示例：
+- Website
+- Homepage URL
+- Official Domain
+
+##### 示例 B：简短描述
+- key: `shortDesc`
+- aliases: `tagline, summary, short description, one line intro`
+
+可覆盖的页面字段文案示例：
+- Tagline
+- Project Summary
+- One-line introduction
+
+##### 示例 C：关键词标签
+- key: `tags`
+- aliases: `keywords, tags, seo keywords, topic tags`
+
+可覆盖的页面字段文案示例：
+- Keywords
+- SEO Keywords
+- Topic Tags
+
+---
 
 ### Release 打包
-项目支持一键打包为可发布的 Chrome 扩展压缩包。
 
 ```bash
 bash scripts/package-chrome-extension.sh
 ```
 
-脚本会读取 `manifest.json` 中的版本号，并输出：
-
-> 说明：`release/*.zip` 属于本地或 CI 生成产物，不提交到 git，避免 PR 包含二进制文件。
+脚本会读取 `manifest.json` 版本号，并生成：
 
 ```text
 release/GEOCopilot-chrome-v<version>.zip
 ```
 
-当前版本 `1.2.2` 的产物为：
+> 说明：`release/*.zip` 为本地或 CI 产物，不提交到 git。
 
-```text
-release/GEOCopilot-chrome-v1.2.2.zip
-```
+### 开源规范
+- License：`LICENSE`（MIT）
+- Contribution：`CONTRIBUTING.md`
+- Code of Conduct：`CODE_OF_CONDUCT.md`
+- Security：`SECURITY.md`
+- Support：`SUPPORT.md`
 
-### GitHub 自动发布（Tag 触发）
-本仓库已集成 GitHub Actions，可自动打包并发布 Release 产物。
+---
 
-- 触发方式：推送 `v<version>` 标签（例如：`v1.2.2`）
-- 校验规则：标签版本必须与 `manifest.json` 中版本一致
-- 产物结果：自动上传 `release/GEOCopilot-chrome-v<version>.zip` 到 GitHub Releases
-- 保护规则：仅允许 `main` 分支上的提交发版
-- 发布说明：基于提交历史自动生成（相对上一个 semver 标签）
+## Sponsor / 赞助支持
 
-示例命令：
+If GEOCopilot helps your workflow, you can support ongoing maintenance and feature development here:
 
-```bash
-git tag v1.2.2
-git push origin v1.2.2
-```
+- GitHub Sponsors: https://github.com/sponsors/Cweiping
 
-### Chrome 本地安装（调试）
-1. 打开 `chrome://extensions`
-2. 开启右上角「开发者模式」
-3. 将 zip 解压到本地目录
-4. 点击「加载已解压的扩展程序」，选择解压后的目录
+如果 GEOCopilot 对你的工作流有帮助，欢迎通过以下链接支持后续维护与功能迭代：
 
-### Chrome Web Store 发布
-1. 登录 Chrome Web Store 开发者后台
-2. 新建或选择扩展项目
-3. 上传 `release/GEOCopilot-chrome-v<version>.zip`
-4. 按提示完善商店信息并提交审核
+- GitHub Sponsors：https://github.com/sponsors/Cweiping
 
-### 开源规范说明
-本仓库遵循常见开源社区规范：
-- 许可证：`LICENSE`（MIT）
-- 贡献指南：`CONTRIBUTING.md`
-- 行为准则：`CODE_OF_CONDUCT.md`
-- 安全策略：`SECURITY.md`
-- 支持说明：`SUPPORT.md`
+Support helps with:
+- Continued form-adaptation and compatibility updates
+- UI/UX refinements and quality improvements
+- New automation capabilities for GEO/SEO submission scenarios

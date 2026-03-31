@@ -105,6 +105,7 @@ const I18N = {
     strategiesSaved: '匹配策略已保存',
     quickExportTip: '导出配置',
     quickImportTip: '导入配置',
+    sponsorTip: '赞助支持',
     configExported: '配置与策略已导出',
     configImported: '配置与策略已导入',
     configImportFail: m => `配置导入失败：${m}`,
@@ -137,6 +138,7 @@ const I18N = {
     strategiesSaved: 'Matching strategies saved',
     quickExportTip: 'Export config',
     quickImportTip: 'Import config',
+    sponsorTip: 'Sponsor',
     configExported: 'Config and strategies exported',
     configImported: 'Config and strategies imported',
     configImportFail: m => `Config import failed: ${m}`,
@@ -178,6 +180,8 @@ function applyI18n() {
   document.getElementById('strategyTitle').textContent = t('strategyTitle');
   document.getElementById('addStrategyBtn').textContent = t('addStrategyBtn');
   document.getElementById('saveStrategiesBtn').textContent = t('saveStrategiesBtn');
+  document.getElementById('sponsorLink').setAttribute('aria-label', t('sponsorTip'));
+  document.getElementById('sponsorLink').setAttribute('data-tooltip', t('sponsorTip'));
   document.getElementById('quickExportBtn').setAttribute('aria-label', t('quickExportTip'));
   document.getElementById('quickExportBtn').setAttribute('data-tooltip', t('quickExportTip'));
   document.getElementById('quickImportBtn').setAttribute('aria-label', t('quickImportTip'));

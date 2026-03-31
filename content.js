@@ -7,6 +7,17 @@ function textOf(el) {
   return `${name} ${placeholder} ${aria} ${label}`.toLowerCase();
 }
 
+async function safeGetGeoData() {
+  if (!chrome?.runtime?.id) return null;
+  try {
+    const store = await chrome.storage.local.get('geoData');
+    return store?.geoData || null;
+  } catch (error) {
+    console.warn('GEOCopilot: failed to read storage', error);
+    return null;
+  }
+}
+
 function setNativeValue(el, value) {
   el.focus();
   el.value = value;
@@ -96,8 +107,8 @@ const quickFill = (() => {
   }
 
   async function resolveLanguage() {
-    const store = await chrome.storage.local.get('geoData');
-    const setting = store?.geoData?.settings?.language || 'auto';
+    const geoData = await safeGetGeoData();
+    const setting = geoData?.settings?.language || 'auto';
     if (setting !== 'auto') {
       lang = setting;
       return;
@@ -138,8 +149,7 @@ const quickFill = (() => {
   }
 
   async function getActiveSiteFromStorage() {
-    const store = await chrome.storage.local.get('geoData');
-    const data = store.geoData;
+    const data = await safeGetGeoData();
     if (!data?.websites?.length) return null;
     return data.websites.find(item => item.id === data.activeWebsiteId) || data.websites[0];
   }
@@ -267,6 +277,7 @@ const quickFill = (() => {
   }
 
   function addMarkerForField(field, mapped) {
+    let clickTimer = null;
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'geo-quick-fill-trigger';
@@ -278,21 +289,31 @@ const quickFill = (() => {
       e.preventDefault();
       e.stopPropagation();
       if (e.detail > 1) return;
-      activeField = field;
-      activeSite = await getActiveSiteFromStorage();
-      if (!activeSite) return;
-      buildPanelItems(activeSite);
-      panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
-      if (panel.style.display !== 'none') positionNearField(activeField, panel, 0, 24);
+      clearTimeout(clickTimer);
+      clickTimer = setTimeout(() => {
+        (async () => {
+          activeField = field;
+          activeSite = await getActiveSiteFromStorage();
+          if (!activeSite) return;
+          buildPanelItems(activeSite);
+          panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+          if (panel.style.display !== 'none') positionNearField(activeField, panel, 0, 24);
+        })().catch(error => console.warn('GEOCopilot: quick fill click failed', error));
+      }, 220);
     });
 
     btn.addEventListener('dblclick', async e => {
       e.preventDefault();
       e.stopPropagation();
-      activeSite = await getActiveSiteFromStorage();
-      if (!activeSite) return;
-      tryDoubleClickFill(field, activeSite);
-      hidePanel();
+      clearTimeout(clickTimer);
+      try {
+        activeSite = await getActiveSiteFromStorage();
+        if (!activeSite) return;
+        tryDoubleClickFill(field, activeSite);
+        hidePanel();
+      } catch (error) {
+        console.warn('GEOCopilot: quick fill double click failed', error);
+      }
     });
 
     document.body.appendChild(btn);
@@ -334,47 +355,52 @@ const quickFill = (() => {
   return { init, remove };
 })();
 
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.type === 'getFields') {
-    const fields = [...document.querySelectorAll('input, textarea')]
-      .filter(el => !el.disabled && el.type !== 'hidden')
-      .map((el, idx) => ({ selector: fieldSelector(el, idx), label: textOf(el) || `字段 ${idx + 1}` }));
-    sendResponse(fields);
-    return;
-  }
-
-  if (msg.type === 'matchSite') {
-    const matched = siteMatchesPage(msg.payload.site, msg.payload.tabUrl);
-    sendResponse({ matched });
-    return;
-  }
-
-  if (msg.type === 'smartFill') {
-    const filled = fillBySite(msg.payload.site);
-    sendResponse({ filled });
-    return;
-  }
-
-  if (msg.type === 'manualFill') {
-    const el = document.querySelector(msg.payload.selector);
-    if (!el) {
-      sendResponse({ ok: false });
+if (chrome?.runtime?.id) {
+  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (msg.type === 'getFields') {
+      const fields = [...document.querySelectorAll('input, textarea')]
+        .filter(el => !el.disabled && el.type !== 'hidden')
+        .map((el, idx) => ({ selector: fieldSelector(el, idx), label: textOf(el) || `字段 ${idx + 1}` }));
+      sendResponse(fields);
       return;
     }
-    setNativeValue(el, msg.payload.value);
-    sendResponse({ ok: true });
-    return;
-  }
-});
+
+    if (msg.type === 'matchSite') {
+      const matched = siteMatchesPage(msg.payload.site, msg.payload.tabUrl);
+      sendResponse({ matched });
+      return;
+    }
+
+    if (msg.type === 'smartFill') {
+      const filled = fillBySite(msg.payload.site);
+      sendResponse({ filled });
+      return;
+    }
+
+    if (msg.type === 'manualFill') {
+      const el = document.querySelector(msg.payload.selector);
+      if (!el) {
+        sendResponse({ ok: false });
+        return;
+      }
+      setNativeValue(el, msg.payload.value);
+      sendResponse({ ok: true });
+      return;
+    }
+  });
+}
 
 (async function autoFillOnLoad() {
-  const store = await chrome.storage.local.get('geoData');
-  const data = store.geoData;
-  if (!data?.settings?.autoFillOnLoad) return;
-  const site = data.websites?.find(item => item.id === data.activeWebsiteId) || data.websites?.[0];
-  if (!site) return;
-  if (!siteMatchesPage(site)) return;
-  fillBySite(site);
+  try {
+    const data = await safeGetGeoData();
+    if (!data?.settings?.autoFillOnLoad) return;
+    const site = data.websites?.find(item => item.id === data.activeWebsiteId) || data.websites?.[0];
+    if (!site) return;
+    if (!siteMatchesPage(site)) return;
+    fillBySite(site);
+  } catch (error) {
+    console.warn('GEOCopilot: auto fill on load failed', error);
+  }
 })();
 
-quickFill.init();
+quickFill.init().catch(error => console.warn('GEOCopilot: quick fill init failed', error));

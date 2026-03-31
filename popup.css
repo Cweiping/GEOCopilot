@@ -87,10 +87,10 @@ body {
 .quick-action {
   text-decoration: none;
   position: relative;
-  width: 54px;
-  height: 54px;
-  min-width: 54px;
-  min-height: 54px;
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
+  min-height: 56px;
   padding: 0;
   background: color-mix(in srgb, var(--surface-elevated) 82%, var(--surface-soft) 18%);
   color: var(--muted);
@@ -103,8 +103,8 @@ body {
 }
 
 .quick-action .icon {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   fill: currentColor;
 }
 

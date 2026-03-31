@@ -442,6 +442,79 @@ const quickFill = (() => {
   return { init, remove };
 })();
 
+const sidePanelFloatBall = (() => {
+  let button = null;
+
+  async function isEnabled() {
+    const data = await safeGetGeoData();
+    if (data?.settings?.enableAllFeatures === false) return false;
+    return data?.settings?.preferSidePanel !== false;
+  }
+
+  function remove() {
+    button?.remove();
+    button = null;
+  }
+
+  function ensureButton() {
+    if (button) return button;
+    button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'geo-side-panel-float-ball';
+    button.title = 'GEOCopilot';
+    button.setAttribute('aria-label', 'Open GEOCopilot side panel');
+    button.textContent = '✦';
+    button.addEventListener('click', async event => {
+      event.preventDefault();
+      try {
+        await chrome.runtime.sendMessage({ type: 'openSidePanel' });
+      } catch (error) {
+        console.warn('GEOCopilot: open side panel failed', error);
+      }
+    });
+    const style = document.createElement('style');
+    style.id = 'geo-side-panel-float-ball-style';
+    style.textContent = `
+      .geo-side-panel-float-ball {
+        position: fixed;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 44px;
+        height: 44px;
+        border: 2px solid #ff3b30;
+        border-radius: 999px;
+        background: #fff;
+        color: #2862ff;
+        font-size: 20px;
+        line-height: 1;
+        cursor: pointer;
+        box-shadow: 0 8px 18px rgba(18, 44, 102, 0.24);
+        z-index: 2147483647;
+      }
+      .geo-side-panel-float-ball:hover {
+        transform: translateY(-50%) scale(1.04);
+      }
+    `;
+    if (!document.getElementById(style.id)) {
+      document.head.appendChild(style);
+    }
+    document.body.appendChild(button);
+    return button;
+  }
+
+  async function init() {
+    if (!chrome?.runtime?.id) return;
+    if (!(await isEnabled())) {
+      remove();
+      return;
+    }
+    ensureButton();
+  }
+
+  return { init, remove };
+})();
+
 if (chrome?.runtime?.id) {
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === 'getFields') {
@@ -493,10 +566,12 @@ if (chrome?.runtime?.id) {
 })();
 
 quickFill.init().catch(error => console.warn('GEOCopilot: quick fill init failed', error));
+sidePanelFloatBall.init().catch(error => console.warn('GEOCopilot: float ball init failed', error));
 
 if (chrome?.storage?.onChanged) {
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local' || !changes.geoData) return;
     quickFill.init().catch(error => console.warn('GEOCopilot: quick fill refresh failed', error));
+    sidePanelFloatBall.init().catch(error => console.warn('GEOCopilot: float ball refresh failed', error));
   });
 }

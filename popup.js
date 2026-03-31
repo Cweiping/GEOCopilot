@@ -122,6 +122,9 @@ const I18N = {
     configExported: '配置与策略已导出',
     configImported: '配置与策略已导入',
     configImportFail: m => `配置导入失败：${m}`,
+    authorMeta: '作者：<a href="https://github.com/Cweiping" target="_blank" rel="noopener noreferrer">Cweiping</a>（GitHub）',
+    authorDeclaration: '声明：本工具仅用于提升公开网页信息录入效率，请遵守目标网站条款与适用法律。',
+    sponsorRequest: '如果这个项目对你有帮助，欢迎赞助支持 ❤️',
   },
   en: {
     subtitle: 'SEO / GEO Automation Assistant',
@@ -165,6 +168,9 @@ const I18N = {
     configExported: 'Config and strategies exported',
     configImported: 'Config and strategies imported',
     configImportFail: m => `Config import failed: ${m}`,
+    authorMeta: 'Author: <a href="https://github.com/Cweiping" target="_blank" rel="noopener noreferrer">Cweiping</a> (GitHub)',
+    authorDeclaration: 'Notice: This tool is provided for productivity on publicly available forms. Please comply with target-site terms and applicable laws.',
+    sponsorRequest: 'If this project helps you, sponsoring is greatly appreciated ❤️',
   },
 };
 
@@ -250,6 +256,9 @@ function applyI18n() {
   document.getElementById('siteTagInput').placeholder = t('tagPlaceholder');
   document.getElementById('addSiteBtn').textContent = state.editingWebsiteId ? t('updateSite') : t('saveSite');
   document.getElementById('matchStatus').textContent = t('matchChecking');
+  document.getElementById('authorMeta').innerHTML = t('authorMeta');
+  document.getElementById('authorDeclaration').textContent = t('authorDeclaration');
+  document.getElementById('authorSponsorLink').textContent = t('sponsorRequest');
   applySettingsControls();
   renderStrategies();
 }

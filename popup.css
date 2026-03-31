@@ -544,3 +544,35 @@ body {
     width: 100%;
   }
 }
+
+
+.author-footer {
+  margin-top: auto;
+  padding: 10px 12px 2px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.author-meta,
+.author-declaration {
+  margin: 0;
+}
+
+.author-meta a,
+.author-sponsor-link {
+  color: var(--brand);
+  text-decoration: none;
+}
+
+.author-meta a:hover,
+.author-sponsor-link:hover {
+  text-decoration: underline;
+}
+
+.author-sponsor-link {
+  display: inline-block;
+  margin-top: 4px;
+  font-weight: 600;
+}

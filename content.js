@@ -1,10 +1,31 @@
+function nearbyHintText(el) {
+  if (!el) return '';
+  const scoped = el.closest('td, th, section, article, form, .form-group, .field, .control') || el.parentElement;
+  if (!scoped) return '';
+  const cues = [...scoped.querySelectorAll('label, legend, b, strong, .label, .field-label')]
+    .map(node => (node.innerText || '').trim())
+    .filter(Boolean)
+    .slice(0, 6);
+  return cues.join(' ');
+}
+
 function textOf(el) {
+  if (el?.tagName?.toLowerCase() === 'iframe') {
+    const title = el.getAttribute('title') || '';
+    const aria = el.getAttribute('aria-label') || '';
+    const name = el.name || '';
+    const id = el.id || '';
+    const label = id ? document.querySelector(`label[for="${CSS.escape(id)}"]`)?.innerText || '' : '';
+    const wrapperText = nearbyHintText(el);
+    return `${title} ${aria} ${name} ${id} ${label} ${wrapperText}`.toLowerCase();
+  }
   const id = el.id;
   const name = el.name || '';
   const placeholder = el.placeholder || '';
   const aria = el.getAttribute('aria-label') || '';
   const label = id ? document.querySelector(`label[for="${CSS.escape(id)}"]`)?.innerText || '' : '';
-  return `${name} ${placeholder} ${aria} ${label}`.toLowerCase();
+  const wrapperText = nearbyHintText(el);
+  return `${name} ${placeholder} ${aria} ${label} ${wrapperText}`.toLowerCase();
 }
 
 async function safeGetGeoData() {
@@ -23,6 +44,23 @@ function setNativeValue(el, value) {
   el.value = value;
   el.dispatchEvent(new Event('input', { bubbles: true }));
   el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function setIframeValue(iframe, value) {
+  try {
+    const doc = iframe.contentDocument;
+    const body = doc?.body;
+    if (!body) return false;
+    body.focus();
+    body.textContent = value;
+    body.dispatchEvent(new Event('input', { bubbles: true }));
+    body.dispatchEvent(new Event('change', { bubbles: true }));
+    iframe.dispatchEvent(new Event('input', { bubbles: true }));
+    iframe.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 const NON_FILLABLE_INPUT_TYPES = new Set([
@@ -46,13 +84,49 @@ function isFillableField(el) {
   return !NON_FILLABLE_INPUT_TYPES.has((el.type || '').toLowerCase());
 }
 
+function isFillableIframe(el) {
+  if (!el || el.tagName?.toLowerCase() !== 'iframe') return false;
+  if (!document.body.contains(el)) return false;
+  try {
+    const doc = el.contentDocument;
+    const body = doc?.body;
+    if (!body) return false;
+    return doc.designMode === 'on' || body.isContentEditable || ['true', 'plaintext-only'].includes(body.getAttribute('contenteditable'));
+  } catch {
+    return false;
+  }
+}
+
+function getFillableCandidates() {
+  const controls = [...document.querySelectorAll('input, textarea')].filter(isFillableField);
+  const richEditors = [...document.querySelectorAll('iframe')].filter(isFillableIframe);
+  return [...controls, ...richEditors];
+}
+
+function isFieldEmpty(el) {
+  if (el?.tagName?.toLowerCase() === 'iframe') {
+    try {
+      return !(el.contentDocument?.body?.innerText || '').trim();
+    } catch {
+      return false;
+    }
+  }
+  return !el.value;
+}
+
+function setFieldValue(el, value) {
+  if (el?.tagName?.toLowerCase() === 'iframe') return setIframeValue(el, value);
+  setNativeValue(el, value);
+  return true;
+}
+
 const BUILTIN_MATCHING_STRATEGIES = [
   { key: 'name', label: '网站名称', aliases: ['网站名称', 'name', 'title', '站点名称', '网站名'] },
   { key: 'category', label: '分类', aliases: ['分类', 'category', 'type'] },
-  { key: 'url', label: '网站地址', aliases: ['网址', 'url', 'link', 'site', 'homepage', 'domain', '网站地址'] },
+  { key: 'url', label: '网站地址', aliases: ['网址', 'url', 'link', 'site', 'homepage', 'domain', '网站地址', 'location', 'site location'] },
   { key: 'email', label: '联系邮箱', aliases: ['邮箱', 'email', 'mail', '联系'] },
   { key: 'shortDesc', label: '简短描述', aliases: ['简短描述', 'short', 'slogan', 'summary', '一句话'] },
-  { key: 'longDesc', label: '详细描述', aliases: ['详细描述', 'long', 'detail', 'description', '内容介绍', '简介', '描述'] },
+  { key: 'longDesc', label: '详细描述', aliases: ['详细描述', 'long', 'detail', 'description', '内容介绍', '简介', '描述', '正文', '内容详情', 'editor', 'rich text', 'post', 'content', 'desc', 'addesc'] },
   { key: 'tags', label: '关键词标签', aliases: ['关键词', 'tags', 'keyword'] },
 ];
 
@@ -95,13 +169,13 @@ function findValueByHint(hint, site, strategies = BUILTIN_MATCHING_STRATEGIES) {
 }
 
 function fillBySite(site, strategies = BUILTIN_MATCHING_STRATEGIES) {
-  const candidates = [...document.querySelectorAll('input, textarea')].filter(isFillableField);
+  const candidates = getFillableCandidates();
   let filled = 0;
   for (const el of candidates) {
     const hint = textOf(el);
     const value = findValueByHint(hint, site, strategies);
-    if (value && !el.value) {
-      setNativeValue(el, value);
+    if (value && isFieldEmpty(el)) {
+      setFieldValue(el, value);
       filled += 1;
     }
   }
@@ -235,19 +309,19 @@ const quickFill = (() => {
   }
 
   async function tryAutoFillByStrategy(field, site, data) {
-    if (!field || !site || field.value) return { filled: false };
+    if (!field || !site || !isFieldEmpty(field)) return { filled: false };
     const signature = fieldSignature(field);
     const strategies = normalizeMatchingStrategies(data?.matchingStrategies);
     const fields = availableSiteFields(site, strategies);
     const learnedKey = learnedFieldKey(data, site.id, signature);
     const learned = learnedKey ? fields.find(item => item.key === learnedKey && item.value) : null;
     if (learned) {
-      setNativeValue(field, learned.value);
+      setFieldValue(field, learned.value);
       return { filled: true, signature };
     }
     const mapped = matchFieldByHint(signature, site, strategies);
     if (mapped?.value) {
-      setNativeValue(field, mapped.value);
+      setFieldValue(field, mapped.value);
       return { filled: true, signature };
     }
     return { filled: false, signature };
@@ -414,7 +488,7 @@ const quickFill = (() => {
       hidePanel();
       return;
     }
-    const candidates = [...document.querySelectorAll('input, textarea')].filter(isFillableField);
+    const candidates = getFillableCandidates();
     clearMarkers();
     for (const field of candidates) addMarkerForField(field);
   }
@@ -678,8 +752,7 @@ const pageQuickRail = (() => {
 if (chrome?.runtime?.id) {
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === 'getFields') {
-      const fields = [...document.querySelectorAll('input, textarea')]
-        .filter(isFillableField)
+      const fields = getFillableCandidates()
         .map((el, idx) => ({ selector: fieldSelector(el, idx), label: textOf(el) || `字段 ${idx + 1}` }));
       sendResponse(fields);
       return;
@@ -703,7 +776,7 @@ if (chrome?.runtime?.id) {
         sendResponse({ ok: false });
         return;
       }
-      setNativeValue(el, msg.payload.value);
+      setFieldValue(el, msg.payload.value);
       sendResponse({ ok: true });
       return;
     }

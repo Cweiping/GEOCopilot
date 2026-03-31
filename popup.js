@@ -210,10 +210,21 @@ function applyI18n() {
   document.getElementById('quickExportBtn').setAttribute('data-tooltip', t('quickExportTip'));
   document.getElementById('quickImportBtn').setAttribute('aria-label', t('quickImportTip'));
   document.getElementById('quickImportBtn').setAttribute('data-tooltip', t('quickImportTip'));
-  document.getElementById('railSidePanelToggleBtn').setAttribute('title', t('quickRailSidePanelTip'));
-  document.getElementById('railSmartFillBtn').setAttribute('title', t('quickRailSmartFillTip'));
-  document.getElementById('railSettingsBtn').setAttribute('title', t('quickRailSettingsTip'));
-  document.getElementById('railFeedbackLink').setAttribute('title', t('quickRailFeedbackTip'));
+  const railSidePanelToggleBtn = document.getElementById('railSidePanelToggleBtn');
+  const railSmartFillBtn = document.getElementById('railSmartFillBtn');
+  const railSettingsBtn = document.getElementById('railSettingsBtn');
+  const railFeedbackLink = document.getElementById('railFeedbackLink');
+  const railTooltipMap = [
+    [railSidePanelToggleBtn, t('quickRailSidePanelTip')],
+    [railSmartFillBtn, t('quickRailSmartFillTip')],
+    [railSettingsBtn, t('quickRailSettingsTip')],
+    [railFeedbackLink, t('quickRailFeedbackTip')],
+  ];
+  railTooltipMap.forEach(([el, label]) => {
+    el.setAttribute('title', label);
+    el.setAttribute('aria-label', label);
+    el.setAttribute('data-tooltip', label);
+  });
   document.getElementById('railFeedbackLink').setAttribute('href', FEEDBACK_ISSUES_URL);
   document.getElementById('manualFillBtn').textContent = t('manualFillBtn');
   document.getElementById('refreshFieldsBtn').textContent = t('refreshFieldsBtn');

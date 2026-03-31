@@ -30,9 +30,14 @@ body {
   border: 1px solid #dbe0eb;
   background: #fff;
   border-radius: 8px;
-  padding: 8px 4px;
+  padding: 8px 6px;
   font-size: 12px;
   cursor: pointer;
+  color: #20242f;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tab.active {
@@ -94,6 +99,18 @@ button.secondary { background: #7e8799; }
   overflow-y: auto;
 }
 
+.section-toggle {
+  margin-top: 8px;
+}
+
+.section-content {
+  display: none;
+}
+
+.section-content.open {
+  display: block;
+}
+
 .site-item {
   border: 1px solid #dbe0eb;
   border-radius: 8px;
@@ -102,6 +119,16 @@ button.secondary { background: #7e8799; }
 }
 
 .site-item.active { border-color: #2962ff; }
+
+.site-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.site-head label {
+  cursor: pointer;
+}
 
 .site-actions {
   display: flex;
@@ -125,3 +152,13 @@ button.secondary { background: #7e8799; }
 .checkbox input { width: auto; }
 .hint { color: #5d6475; font-size: 12px; }
 #status { margin-top: 8px; color: #2d4db0; font-size: 12px; min-height: 16px; }
+
+@media (max-width: 430px) {
+  .app {
+    width: min(100vw, 380px);
+  }
+
+  .tabs {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

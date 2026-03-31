@@ -18,35 +18,40 @@
     </div>
 
     <section id="tab-sites" class="panel active">
-      <h3>添加网站信息</h3>
-      <div class="form-grid">
-        <label>网站名称 *</label>
-        <input id="siteName" placeholder="输入网站名称" required>
-
-        <label>分类</label>
-        <input id="siteCategory" placeholder="如：技术博客、新闻网站等">
-
-        <label>网站地址 *</label>
-        <input id="siteUrl" placeholder="https://example.com" required>
-
-        <label>联系邮箱</label>
-        <input id="siteEmail" placeholder="contact@example.com (可选)">
-
-        <label>简短描述</label>
-        <textarea id="siteShortDesc" placeholder="一句话描述网站特色 (可选)"></textarea>
-
-        <label>详细描述</label>
-        <textarea id="siteLongDesc" placeholder="详细描述网站内容、特色、服务等 (可选)"></textarea>
-
-        <label>关键词标签</label>
-        <div>
-          <input id="siteTagInput" placeholder="输入关键词后按回车添加">
-          <div id="siteTags" class="tags"></div>
-        </div>
+      <button class="section-toggle" data-target="savedSitesSection">已保存网站</button>
+      <div id="savedSitesSection" class="section-content">
+        <div id="siteList" class="site-list"></div>
       </div>
-      <button id="addSiteBtn">保存网站</button>
-      <h3>已保存网站</h3>
-      <div id="siteList" class="site-list"></div>
+
+      <button class="section-toggle" data-target="addSiteSection">添加网站信息</button>
+      <div id="addSiteSection" class="section-content">
+        <div class="form-grid">
+          <label>网站名称 *</label>
+          <input id="siteName" placeholder="输入网站名称" required>
+
+          <label>分类</label>
+          <input id="siteCategory" placeholder="如：技术博客、新闻网站等">
+
+          <label>网站地址 *</label>
+          <input id="siteUrl" placeholder="https://example.com" required>
+
+          <label>联系邮箱</label>
+          <input id="siteEmail" placeholder="contact@example.com (可选)">
+
+          <label>简短描述</label>
+          <textarea id="siteShortDesc" placeholder="一句话描述网站特色 (可选)"></textarea>
+
+          <label>详细描述</label>
+          <textarea id="siteLongDesc" placeholder="详细描述网站内容、特色、服务等 (可选)"></textarea>
+
+          <label>关键词标签</label>
+          <div>
+            <input id="siteTagInput" placeholder="输入关键词后按回车添加">
+            <div id="siteTags" class="tags"></div>
+          </div>
+        </div>
+        <button id="addSiteBtn">保存网站</button>
+      </div>
     </section>
 
     <section id="tab-smart" class="panel">

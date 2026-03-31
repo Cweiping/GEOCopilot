@@ -18,6 +18,14 @@ function setStatus(message) {
   statusEl.textContent = message || '';
 }
 
+function normalizeMessageError(error) {
+  const message = error?.message || String(error || '');
+  if (message.includes('Could not establish connection. Receiving end does not exist.')) {
+    return '当前页面未注入内容脚本（常见于 chrome:// 页面、扩展页，或页面刚加载）。请切换到普通网页后重试。';
+  }
+  return message;
+}
+
 function getStorage() {
   return chrome.storage.local.get('geoData');
 }
@@ -59,7 +67,10 @@ function renderSites() {
     const div = document.createElement('div');
     div.className = `site-item ${site.id === state.activeWebsiteId ? 'active' : ''}`;
     div.innerHTML = `
-      <div><strong>${site.name}</strong> (${site.category || '未分类'})</div>
+      <div class="site-head">
+        <input type="radio" name="activeSite" data-action="active" data-id="${site.id}" ${site.id === state.activeWebsiteId ? 'checked' : ''}>
+        <label><strong>${site.name}</strong> (${site.category || '未分类'}) ${site.id === state.activeWebsiteId ? '· 默认读取' : ''}</label>
+      </div>
       <div>${site.url}</div>
       <div class="hint">${site.shortDesc || site.longDesc || ''}</div>
       <div class="tags">${(site.tags || []).map(tag => `<span class="tag">${tag}</span>`).join('')}</div>
@@ -124,7 +135,7 @@ async function refreshFieldList() {
       select.appendChild(opt);
     });
   } catch (e) {
-    setStatus(`字段读取失败：${e.message}`);
+    setStatus(`字段读取失败：${normalizeMessageError(e)}`);
   }
 }
 
@@ -136,14 +147,27 @@ async function detectMatch() {
     return;
   }
 
-  await withActiveTab(async (tabId, tabUrl) => {
-    const result = await chrome.tabs.sendMessage(tabId, {
-      type: 'matchSite',
-      payload: { site, tabUrl },
+  try {
+    await withActiveTab(async (tabId, tabUrl) => {
+      const result = await chrome.tabs.sendMessage(tabId, {
+        type: 'matchSite',
+        payload: { site, tabUrl },
+      });
+      status.textContent = result?.matched
+        ? `已匹配站点：${site.name}，可执行智能填充。`
+        : `未匹配站点规则（当前：${tabUrl || '未知页面'}），仍可手动填充。`;
     });
-    status.textContent = result?.matched
-      ? `已匹配站点：${site.name}，可执行智能填充。`
-      : `未匹配站点规则（当前：${tabUrl || '未知页面'}），仍可手动填充。`;
+  } catch (e) {
+    status.textContent = `匹配失败：${normalizeMessageError(e)}`;
+  }
+}
+
+function bindSectionToggle() {
+  document.querySelectorAll('.section-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const section = document.getElementById(btn.dataset.target);
+      section?.classList.toggle('open');
+    });
   });
 }
 
@@ -175,6 +199,8 @@ tabs.forEach(btn => {
     if (btn.dataset.tab === 'smart') await detectMatch();
   });
 });
+
+bindSectionToggle();
 
 document.getElementById('siteTagInput').addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
@@ -214,7 +240,7 @@ document.getElementById('addSiteBtn').addEventListener('click', async () => {
 });
 
 document.getElementById('siteList').addEventListener('click', async e => {
-  const btn = e.target.closest('button[data-action]');
+  const btn = e.target.closest('[data-action]');
   if (!btn) return;
   const id = btn.dataset.id;
   if (btn.dataset.action === 'delete') {
@@ -235,8 +261,12 @@ document.getElementById('smartFillBtn').addEventListener('click', async () => {
     return;
   }
 
-  const result = await withActiveTab(tabId => chrome.tabs.sendMessage(tabId, { type: 'smartFill', payload: { site } }));
-  setStatus(result?.filled ? `已自动填充 ${result.filled} 个字段` : '没有匹配到可填充字段');
+  try {
+    const result = await withActiveTab(tabId => chrome.tabs.sendMessage(tabId, { type: 'smartFill', payload: { site } }));
+    setStatus(result?.filled ? `已自动填充 ${result.filled} 个字段` : '没有匹配到可填充字段');
+  } catch (e) {
+    setStatus(`智能填充失败：${normalizeMessageError(e)}`);
+  }
 });
 
 document.getElementById('manualFillBtn').addEventListener('click', async () => {
@@ -252,11 +282,15 @@ document.getElementById('manualFillBtn').addEventListener('click', async () => {
     setStatus('请选择字段和可用填充值');
     return;
   }
-  const result = await withActiveTab(tabId => chrome.tabs.sendMessage(tabId, {
-    type: 'manualFill',
-    payload: { selector, value },
-  }));
-  setStatus(result?.ok ? '手动填充成功' : '手动填充失败');
+  try {
+    const result = await withActiveTab(tabId => chrome.tabs.sendMessage(tabId, {
+      type: 'manualFill',
+      payload: { selector, value },
+    }));
+    setStatus(result?.ok ? '手动填充成功' : '手动填充失败');
+  } catch (e) {
+    setStatus(`手动填充失败：${normalizeMessageError(e)}`);
+  }
 });
 
 document.getElementById('refreshFieldsBtn').addEventListener('click', refreshFieldList);

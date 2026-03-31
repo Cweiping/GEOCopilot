@@ -541,9 +541,16 @@ async function init() {
   renderValueOptions();
   await refreshFieldList();
   await detectMatch();
+  if (state.pendingPanelTab) {
+    await activateTab(state.pendingPanelTab);
+    state.pendingPanelTab = null;
+    await saveStorage();
+  }
 }
 
-tabs.forEach(btn => btn.addEventListener('click', async () => {
+async function activateTab(tabName) {
+  const btn = tabs.find(item => item.dataset.tab === tabName);
+  if (!btn) return;
   if (btn.dataset.tab !== 'sites' && btn.dataset.tab !== 'settings' && state.settings.enableAllFeatures === false) {
     setStatus(t('allFeaturesDisabled'));
     return;
@@ -552,6 +559,10 @@ tabs.forEach(btn => btn.addEventListener('click', async () => {
   btn.classList.add('active'); document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
   if (btn.dataset.tab === 'manual') await refreshFieldList();
   if (btn.dataset.tab === 'smart') await detectMatch();
+}
+
+tabs.forEach(btn => btn.addEventListener('click', async () => {
+  await activateTab(btn.dataset.tab);
 }));
 
 bindSectionToggle();

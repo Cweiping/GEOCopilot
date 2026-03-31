@@ -80,14 +80,7 @@ body {
 }
 
 .quick-rail {
-  position: fixed;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 50;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: none;
 }
 
 .quick-rail-btn {

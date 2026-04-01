@@ -428,6 +428,10 @@ body {
   background: var(--brand-soft);
 }
 
+.export-context-menu {
+  width: 180px;
+}
+
 .row {
   margin-bottom: 10px;
 }

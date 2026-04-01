@@ -42,89 +42,8 @@ async function safeGetGeoData() {
   }
 }
 
-function normalizeDomain(rawUrl = location.href) {
-  try {
-    return new URL(rawUrl).hostname.replace(/^www\./, '');
-  } catch {
-    return '';
-  }
-}
-
-function getSeoSnapshot() {
-  const getMeta = name => document.querySelector(`meta[name="${name}"]`)?.content?.trim() || '';
-  const getProperty = name => document.querySelector(`meta[property="${name}"]`)?.content?.trim() || '';
-  return {
-    pageTitle: document.title || '',
-    metaDescription: getMeta('description'),
-    metaKeywords: getMeta('keywords'),
-    canonicalUrl: document.querySelector('link[rel="canonical"]')?.href || '',
-    ogTitle: getProperty('og:title'),
-    ogDescription: getProperty('og:description'),
-  };
-}
-
-async function recordSeoFillEvent(site, source, filledCount = 0) {
-  const geoData = await safeGetGeoData() || {};
-  const fallbackSite = geoData.websites?.find(item => item.id === geoData.activeWebsiteId) || geoData.websites?.[0] || null;
-  const targetSite = site?.url ? site : fallbackSite;
-  if (!targetSite?.url) return;
-  const domain = normalizeDomain(targetSite.url) || normalizeDomain(location.href);
-  if (!domain) return;
-  const tracking = { ...(geoData.seoTracking || {}) };
-  const current = tracking[domain] || {};
-  const seo = getSeoSnapshot();
-  tracking[domain] = {
-    ...current,
-    domain,
-    siteName: targetSite.name || current.siteName || '',
-    siteUrl: targetSite.url || current.siteUrl || location.href,
-    category: targetSite.category || current.category || '',
-    siteTags: Array.isArray(targetSite.tags) ? targetSite.tags.join('|') : (current.siteTags || ''),
-    ...seo,
-    fillSource: source || current.fillSource || '',
-    fillCount: Number(current.fillCount || 0) + (filledCount > 0 ? 1 : 0),
-    clickCount: 0,
-    lastFillAt: new Date().toISOString(),
-  };
-  await chrome.storage.local.set({ geoData: { ...geoData, seoTracking: tracking } });
-}
-
-async function recordSeoClickEvent() {
-  const geoData = await safeGetGeoData() || {};
-  const domain = normalizeDomain(location.href);
-  if (!domain) return;
-  const tracking = { ...(geoData.seoTracking || {}) };
-  const current = tracking[domain];
-  if (!current?.lastFillAt) return;
-  const nextClick = Number(current.clickCount || 0) + 1;
-  tracking[domain] = { ...current, clickCount: nextClick };
-
-  let records = Array.isArray(geoData.seoCsvRecords) ? [...geoData.seoCsvRecords] : [];
-  if (nextClick >= 1 && nextClick <= 5) {
-    const seo = getSeoSnapshot();
-    const record = {
-      domain,
-      siteName: current.siteName || '',
-      siteUrl: current.siteUrl || location.href,
-      category: current.category || '',
-      siteTags: current.siteTags || '',
-      metaKeywords: seo.metaKeywords || current.metaKeywords || '',
-      metaDescription: seo.metaDescription || current.metaDescription || '',
-      pageTitle: seo.pageTitle || current.pageTitle || '',
-      canonicalUrl: seo.canonicalUrl || current.canonicalUrl || '',
-      ogTitle: seo.ogTitle || current.ogTitle || '',
-      ogDescription: seo.ogDescription || current.ogDescription || '',
-      fillSource: current.fillSource || '',
-      fillCount: Number(current.fillCount || 0),
-      clickCount: nextClick,
-      lastRecordedAt: new Date().toISOString(),
-    };
-    const idx = records.findIndex(item => item.domain === domain);
-    if (idx >= 0) records[idx] = record;
-    else records.push(record);
-  }
-
-  await chrome.storage.local.set({ geoData: { ...geoData, seoTracking: tracking, seoCsvRecords: records } });
+function geoLog(event, details = {}) {
+  console.info(`[GEOCopilot][${new Date().toISOString()}] ${event}`, details);
 }
 
 function setNativeValue(el, value) {
@@ -533,23 +452,36 @@ const quickFill = (() => {
 
   async function handleMarkerClick(field) {
     activeField = field;
+    geoLog('quick_fill_marker_clicked', {
+      fieldHint: textOf(field),
+    });
     try {
       const data = await safeGetGeoData();
       activeSite = await getActiveSiteFromStorage();
       if (!activeSite) {
         hidePanel();
+        geoLog('quick_fill_no_active_site');
         return;
       }
       const attempt = await tryAutoFillByStrategy(activeField, activeSite, data);
       if (attempt.filled) {
         hidePanel();
+        geoLog('quick_fill_auto_applied', {
+          signature: attempt.signature,
+          siteId: activeSite.id,
+        });
         return;
       }
       buildPanelItems(activeSite, attempt.signature, normalizeMatchingStrategies(data?.matchingStrategies));
       panel.style.display = 'flex';
       positionPanel();
+      geoLog('quick_fill_panel_opened', {
+        signature: attempt.signature,
+        siteId: activeSite.id,
+      });
     } catch (error) {
       console.warn('GEOCopilot: marker click fill failed', error);
+      geoLog('quick_fill_marker_click_error', { message: error?.message || String(error) });
     }
   }
 
@@ -1019,6 +951,8 @@ const captchaPromptTranslator = (() => {
 
   function renderTranslations() {
     const promptNodes = PROMPT_SELECTORS.flatMap(selector => [...document.querySelectorAll(selector)]);
+    let translatedCount = 0;
+    const sourcePrompts = [];
     for (const node of promptNodes) {
       const prompt = normalizePrompt(node.textContent || node.innerText);
       if (!prompt) continue;
@@ -1031,6 +965,14 @@ const captchaPromptTranslator = (() => {
         node.parentElement?.appendChild(label);
       }
       label.textContent = translated;
+      translatedCount += 1;
+      sourcePrompts.push(prompt);
+    }
+    if (translatedCount > 0) {
+      geoLog('captcha_translation_rendered', {
+        translatedCount,
+        prompts: sourcePrompts.slice(0, 5),
+      });
     }
   }
 
@@ -1042,15 +984,23 @@ const captchaPromptTranslator = (() => {
 
   async function init() {
     const data = await safeGetGeoData();
+    geoLog('captcha_translation_init_start', {
+      captchaPromptTranslate: data?.settings?.captchaPromptTranslate,
+    });
     if (data?.settings?.captchaPromptTranslate === false) {
       clearTranslations();
+      geoLog('captcha_translation_disabled');
       return;
     }
     ensureStyle();
     renderTranslations();
     observer?.disconnect();
-    observer = new MutationObserver(() => renderTranslations());
+    observer = new MutationObserver(() => {
+      geoLog('captcha_translation_mutation_detected');
+      renderTranslations();
+    });
     observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+    geoLog('captcha_translation_observer_attached');
   }
 
   return { init };
@@ -1099,6 +1049,12 @@ if (chrome?.runtime?.id) {
 (async function autoFillOnLoad() {
   try {
     const data = await safeGetGeoData();
+    geoLog('autofill_onload_start', {
+      enableAllFeatures: data?.settings?.enableAllFeatures,
+      enableWebFill: data?.settings?.enableWebFill,
+      autoFillOnLoad: data?.settings?.autoFillOnLoad,
+      hasWebsites: Array.isArray(data?.websites) ? data.websites.length : 0,
+    });
     if (data?.settings?.enableAllFeatures === false) return;
     if (data?.settings?.enableWebFill === false) return;
     if (!data?.settings?.autoFillOnLoad) return;
@@ -1106,11 +1062,17 @@ if (chrome?.runtime?.id) {
     if (!site) return;
     if (!siteMatchesPage(site)) return;
     const filled = fillBySite(site);
-    recordSeoFillEvent(site, 'auto_fill', filled).catch(error => {
-      console.warn('GEOCopilot: SEO auto-fill tracking failed', error);
+    geoLog('autofill_onload_done', {
+      siteId: site.id,
+      siteName: site.name,
+      filled,
+      pageUrl: location.href,
     });
   } catch (error) {
     console.warn('GEOCopilot: auto fill on load failed', error);
+    geoLog('autofill_onload_error', {
+      message: error?.message || String(error),
+    });
   }
 })();
 

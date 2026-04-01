@@ -1023,6 +1023,9 @@ if (chrome?.runtime?.id) {
 
     if (msg.type === 'smartFill') {
       const filled = fillBySite(msg.payload.site, normalizeMatchingStrategies(msg.payload?.strategies));
+      recordSeoFillEvent(msg.payload.site, 'smart_fill', filled).catch(error => {
+        console.warn('GEOCopilot: SEO smart-fill tracking failed', error);
+      });
       sendResponse({ filled });
       return;
     }
@@ -1034,6 +1037,9 @@ if (chrome?.runtime?.id) {
         return;
       }
       setFieldValue(el, msg.payload.value);
+      recordSeoFillEvent(msg.payload.site, 'manual_fill', 1).catch(error => {
+        console.warn('GEOCopilot: SEO manual-fill tracking failed', error);
+      });
       sendResponse({ ok: true });
       return;
     }
@@ -1069,6 +1075,12 @@ if (chrome?.runtime?.id) {
     });
   }
 })();
+
+document.addEventListener('click', () => {
+  recordSeoClickEvent().catch(error => {
+    console.warn('GEOCopilot: SEO click tracking failed', error);
+  });
+}, true);
 
 quickFill.init().catch(error => console.warn('GEOCopilot: quick fill init failed', error));
 pageQuickRail.init().catch(error => console.warn('GEOCopilot: page quick rail init failed', error));

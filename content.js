@@ -42,6 +42,10 @@ async function safeGetGeoData() {
   }
 }
 
+function geoLog(event, details = {}) {
+  console.info(`[GEOCopilot][${new Date().toISOString()}] ${event}`, details);
+}
+
 function setNativeValue(el, value) {
   el.focus();
   el.value = value;
@@ -448,23 +452,36 @@ const quickFill = (() => {
 
   async function handleMarkerClick(field) {
     activeField = field;
+    geoLog('quick_fill_marker_clicked', {
+      fieldHint: textOf(field),
+    });
     try {
       const data = await safeGetGeoData();
       activeSite = await getActiveSiteFromStorage();
       if (!activeSite) {
         hidePanel();
+        geoLog('quick_fill_no_active_site');
         return;
       }
       const attempt = await tryAutoFillByStrategy(activeField, activeSite, data);
       if (attempt.filled) {
         hidePanel();
+        geoLog('quick_fill_auto_applied', {
+          signature: attempt.signature,
+          siteId: activeSite.id,
+        });
         return;
       }
       buildPanelItems(activeSite, attempt.signature, normalizeMatchingStrategies(data?.matchingStrategies));
       panel.style.display = 'flex';
       positionPanel();
+      geoLog('quick_fill_panel_opened', {
+        signature: attempt.signature,
+        siteId: activeSite.id,
+      });
     } catch (error) {
       console.warn('GEOCopilot: marker click fill failed', error);
+      geoLog('quick_fill_marker_click_error', { message: error?.message || String(error) });
     }
   }
 
@@ -934,6 +951,8 @@ const captchaPromptTranslator = (() => {
 
   function renderTranslations() {
     const promptNodes = PROMPT_SELECTORS.flatMap(selector => [...document.querySelectorAll(selector)]);
+    let translatedCount = 0;
+    const sourcePrompts = [];
     for (const node of promptNodes) {
       const prompt = normalizePrompt(node.textContent || node.innerText);
       if (!prompt) continue;
@@ -946,6 +965,14 @@ const captchaPromptTranslator = (() => {
         node.parentElement?.appendChild(label);
       }
       label.textContent = translated;
+      translatedCount += 1;
+      sourcePrompts.push(prompt);
+    }
+    if (translatedCount > 0) {
+      geoLog('captcha_translation_rendered', {
+        translatedCount,
+        prompts: sourcePrompts.slice(0, 5),
+      });
     }
   }
 
@@ -957,15 +984,23 @@ const captchaPromptTranslator = (() => {
 
   async function init() {
     const data = await safeGetGeoData();
+    geoLog('captcha_translation_init_start', {
+      captchaPromptTranslate: data?.settings?.captchaPromptTranslate,
+    });
     if (data?.settings?.captchaPromptTranslate === false) {
       clearTranslations();
+      geoLog('captcha_translation_disabled');
       return;
     }
     ensureStyle();
     renderTranslations();
     observer?.disconnect();
-    observer = new MutationObserver(() => renderTranslations());
+    observer = new MutationObserver(() => {
+      geoLog('captcha_translation_mutation_detected');
+      renderTranslations();
+    });
     observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+    geoLog('captcha_translation_observer_attached');
   }
 
   return { init };
@@ -1008,15 +1043,30 @@ if (chrome?.runtime?.id) {
 (async function autoFillOnLoad() {
   try {
     const data = await safeGetGeoData();
+    geoLog('autofill_onload_start', {
+      enableAllFeatures: data?.settings?.enableAllFeatures,
+      enableWebFill: data?.settings?.enableWebFill,
+      autoFillOnLoad: data?.settings?.autoFillOnLoad,
+      hasWebsites: Array.isArray(data?.websites) ? data.websites.length : 0,
+    });
     if (data?.settings?.enableAllFeatures === false) return;
     if (data?.settings?.enableWebFill === false) return;
     if (!data?.settings?.autoFillOnLoad) return;
     const site = data.websites?.find(item => item.id === data.activeWebsiteId) || data.websites?.[0];
     if (!site) return;
     if (!siteMatchesPage(site)) return;
-    fillBySite(site);
+    const filled = fillBySite(site);
+    geoLog('autofill_onload_done', {
+      siteId: site.id,
+      siteName: site.name,
+      filled,
+      pageUrl: location.href,
+    });
   } catch (error) {
     console.warn('GEOCopilot: auto fill on load failed', error);
+    geoLog('autofill_onload_error', {
+      message: error?.message || String(error),
+    });
   }
 })();
 

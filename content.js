@@ -46,6 +46,104 @@ function geoLog(event, details = {}) {
   console.info(`[GEOCopilot][${new Date().toISOString()}] ${event}`, details);
 }
 
+function safeHostname(url = location.href) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '').toLowerCase();
+  } catch {
+    return 'unknown';
+  }
+}
+
+function clampClickCount(value) {
+  const num = Number(value) || 0;
+  if (num <= 0) return 0;
+  if (num >= 5) return 5;
+  return Math.floor(num);
+}
+
+function buildSeoRecord(site, fillSource = 'unknown') {
+  return {
+    domain: safeHostname(location.href),
+    siteName: site?.name || '',
+    siteUrl: site?.url || '',
+    category: site?.category || '',
+    siteTags: Array.isArray(site?.tags) ? site.tags.join('|') : '',
+    metaKeywords: '',
+    metaDescription: site?.shortDesc || '',
+    pageTitle: document.title || '',
+    canonicalUrl: location.href,
+    ogTitle: '',
+    ogDescription: site?.longDesc || site?.shortDesc || '',
+    fillSource,
+    fillCount: 0,
+    clickCount: 0,
+    lastRecordedAt: new Date().toISOString(),
+  };
+}
+
+async function updateSeoCsvRecord(mutator) {
+  if (!chrome?.runtime?.id) return;
+  const data = await safeGetGeoData() || {};
+  const records = Array.isArray(data.seoCsvRecords) ? [...data.seoCsvRecords] : [];
+  const nextRecords = mutator(records);
+  await chrome.storage.local.set({
+    geoData: {
+      ...data,
+      seoCsvRecords: Array.isArray(nextRecords) ? nextRecords : records,
+    },
+  });
+}
+
+async function recordSeoFillEvent(site, fillSource, filled = 0) {
+  if (!site || filled <= 0) return;
+  const domain = safeHostname(location.href);
+  await updateSeoCsvRecord(records => {
+    const index = records.findIndex(item => item?.domain === domain && item?.siteUrl === (site.url || ''));
+    const now = new Date().toISOString();
+    if (index === -1) {
+      const record = buildSeoRecord(site, fillSource);
+      record.fillCount = Math.max(1, Number(filled) || 0);
+      record.lastRecordedAt = now;
+      records.push(record);
+      return records;
+    }
+    const current = records[index] || {};
+    records[index] = {
+      ...buildSeoRecord(site, fillSource),
+      ...current,
+      domain,
+      siteName: site?.name || current.siteName || '',
+      siteUrl: site?.url || current.siteUrl || '',
+      category: site?.category || current.category || '',
+      siteTags: Array.isArray(site?.tags) ? site.tags.join('|') : (current.siteTags || ''),
+      metaDescription: site?.shortDesc || current.metaDescription || '',
+      ogDescription: site?.longDesc || site?.shortDesc || current.ogDescription || '',
+      pageTitle: document.title || current.pageTitle || '',
+      canonicalUrl: location.href,
+      fillSource: fillSource || current.fillSource || 'unknown',
+      fillCount: (Number(current.fillCount) || 0) + Math.max(1, Number(filled) || 0),
+      clickCount: clampClickCount(current.clickCount),
+      lastRecordedAt: now,
+    };
+    return records;
+  });
+}
+
+async function recordSeoClickEvent() {
+  const domain = safeHostname(location.href);
+  await updateSeoCsvRecord(records => {
+    const index = records.findIndex(item => item?.domain === domain);
+    if (index === -1) return records;
+    const current = records[index] || {};
+    records[index] = {
+      ...current,
+      clickCount: clampClickCount((Number(current.clickCount) || 0) + 1),
+      lastRecordedAt: new Date().toISOString(),
+    };
+    return records;
+  });
+}
+
 function setNativeValue(el, value) {
   el.focus();
   el.value = value;

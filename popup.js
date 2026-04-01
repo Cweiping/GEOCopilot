@@ -7,6 +7,7 @@ const DEFAULT_DATA = {
     enableAllFeatures: true,
     autoFillOnLoad: true,
     preferSidePanel: true,
+    captchaPromptTranslate: true,
     language: 'auto',
     theme: 'auto',
   },
@@ -66,6 +67,7 @@ const I18N = {
     enableAllFeaturesSetting: '启用插件全部功能',
     autoFillSetting: '打开网页时自动匹配并填充（仅匹配成功时）',
     sidePanelSetting: '启用侧边栏模式（右侧 Tab）',
+    captchaPromptTranslateSetting: '启用验证码题目中文提示（仅翻译题目）',
     languageLabel: '界面语言',
     themeLabel: '主题外观',
     themeAuto: '跟随系统',
@@ -138,6 +140,7 @@ const I18N = {
     enableWebFillSetting: 'Enable web filling',
     enableAllFeaturesSetting: 'Enable all plugin features',
     autoFillSetting: 'Auto match and fill on page load (only when matched)', sidePanelSetting: 'Enable side panel mode (right-side tab)', languageLabel: 'Language', themeLabel: 'Theme', themeAuto: 'Follow system', themeLight: 'Light', themeDark: 'Dark', languageAuto: 'Follow browser', languageZh: 'Chinese', languageEn: 'English', sidePanelHint: 'Side panel mode is supported from the browser right panel.',
+    captchaPromptTranslateSetting: 'Enable Chinese hints for captcha prompts (translation only)',
     fillRequired: 'Required: Site Name and Site URL', siteSaved: 'Site saved', siteUpdated: 'Site updated', siteDeleted: 'Site deleted', defaultUpdated: 'Default site updated', settingsSaved: 'Settings saved',
     chooseFieldValue: 'Please choose a field and a value', manualFillSuccess: 'Manual fill succeeded', manualFillFail: 'Manual fill failed', addSiteFirst: 'Please add a site config first',
     smartFillDone: n => `Auto-filled ${n} field(s)`, smartFillNoMatch: 'No fillable field matched', noAvailableField: 'No fillable field found', addSiteFirstOption: 'Add a site first',
@@ -238,6 +241,7 @@ function applyI18n() {
   document.getElementById('enableAllFeaturesLabel').textContent = t('enableAllFeaturesSetting');
   document.getElementById('autoFillOnLoadLabel').textContent = t('autoFillSetting');
   document.getElementById('preferSidePanelLabel').textContent = t('sidePanelSetting');
+  document.getElementById('captchaPromptTranslateLabel').textContent = t('captchaPromptTranslateSetting');
   document.getElementById('languageLabel').textContent = t('languageLabel');
   document.getElementById('themeLabel').textContent = t('themeLabel');
   document.getElementById('languageSelect').options[0].textContent = t('languageAuto');
@@ -542,6 +546,7 @@ async function init() {
   document.getElementById('enableWebFill').checked = state.settings.enableWebFill !== false;
   document.getElementById('enableAllFeatures').checked = state.settings.enableAllFeatures !== false;
   document.getElementById('autoFillOnLoad').checked = !!state.settings.autoFillOnLoad;
+  document.getElementById('captchaPromptTranslate').checked = state.settings.captchaPromptTranslate !== false;
   document.getElementById('railFeedbackLink').href = FEEDBACK_ISSUES_URL;
   applySettingsControls();
   applyTheme();
@@ -785,6 +790,7 @@ document.getElementById('quickImportInput').addEventListener('change', async e =
     document.getElementById('enableWebFill').checked = state.settings.enableWebFill !== false;
     document.getElementById('enableAllFeatures').checked = state.settings.enableAllFeatures !== false;
     document.getElementById('autoFillOnLoad').checked = !!state.settings.autoFillOnLoad;
+    document.getElementById('captchaPromptTranslate').checked = state.settings.captchaPromptTranslate !== false;
     applySettingsControls();
     applyTheme();
     renderSites();
@@ -811,6 +817,11 @@ document.getElementById('enableWebFill').addEventListener('change', async e => {
 document.getElementById('enableAllFeatures').addEventListener('change', async e => {
   state.settings.enableAllFeatures = e.target.checked;
   applySettingsControls();
+  await saveStorage();
+  setStatus(t('settingsSaved'));
+});
+document.getElementById('captchaPromptTranslate').addEventListener('change', async e => {
+  state.settings.captchaPromptTranslate = e.target.checked;
   await saveStorage();
   setStatus(t('settingsSaved'));
 });

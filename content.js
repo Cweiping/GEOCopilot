@@ -752,6 +752,225 @@ const pageQuickRail = (() => {
   return { init, remove };
 })();
 
+const captchaPromptTranslator = (() => {
+  const PROMPT_SELECTORS = [
+    '.rc-imageselect-desc-wrapper',
+    '.rc-imageselect-desc-no-canonical',
+    '.rc-imageselect-desc',
+    '[data-captcha-prompt]',
+  ];
+  const LABEL_CLASS = 'geo-captcha-zh-hint';
+  let observer = null;
+
+  function normalizePrompt(text) {
+    return String(text || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function nounToZh(value) {
+    const normalized = value.toLowerCase().replace(/[.。]$/g, '').trim();
+    const dictionary = {
+      airplane: '飞机',
+      airplanes: '飞机',
+      aircraft: '飞机',
+      jet: '喷气式飞机',
+      jets: '喷气式飞机',
+      helicopter: '直升机',
+      helicopters: '直升机',
+      bus: '公交车',
+      buses: '公交车',
+      schoolbus: '校车',
+      'school bus': '校车',
+      'school buses': '校车',
+      bicycle: '自行车',
+      bicycles: '自行车',
+      bike: '自行车',
+      bikes: '自行车',
+      car: '汽车',
+      cars: '汽车',
+      taxi: '出租车',
+      taxis: '出租车',
+      motorcycle: '摩托车',
+      motorcycles: '摩托车',
+      scooter: '踏板车',
+      scooters: '踏板车',
+      truck: '卡车',
+      trucks: '卡车',
+      'pickup truck': '皮卡',
+      'pickup trucks': '皮卡',
+      van: '面包车',
+      vans: '面包车',
+      train: '火车',
+      trains: '火车',
+      tram: '有轨电车',
+      trams: '有轨电车',
+      subway: '地铁',
+      subways: '地铁',
+      boat: '船',
+      boats: '船',
+      ship: '轮船',
+      ships: '轮船',
+      ferry: '渡轮',
+      ferries: '渡轮',
+      traffic: '交通灯',
+      'traffic light': '交通灯',
+      'traffic lights': '交通灯',
+      signal: '信号灯',
+      signals: '信号灯',
+      crosswalk: '人行横道',
+      crosswalks: '人行横道',
+      'zebra crossing': '人行横道',
+      'zebra crossings': '人行横道',
+      chimney: '烟囱',
+      chimneys: '烟囱',
+      bridge: '桥',
+      bridges: '桥',
+      stair: '楼梯',
+      stairs: '楼梯',
+      staircase: '楼梯',
+      staircases: '楼梯',
+      hydrant: '消防栓',
+      hydrants: '消防栓',
+      'fire hydrant': '消防栓',
+      'fire hydrants': '消防栓',
+      palm: '棕榈树',
+      palms: '棕榈树',
+      'palm tree': '棕榈树',
+      'palm trees': '棕榈树',
+      tree: '树',
+      trees: '树',
+      mountain: '山',
+      mountains: '山',
+      hill: '山丘',
+      hills: '山丘',
+      building: '建筑物',
+      buildings: '建筑物',
+      skyscraper: '摩天楼',
+      skyscrapers: '摩天楼',
+      storefront: '店面',
+      storefronts: '店面',
+      shop: '商店',
+      shops: '商店',
+      store: '商店',
+      stores: '商店',
+      window: '窗户',
+      windows: '窗户',
+      door: '门',
+      doors: '门',
+      awning: '遮阳篷',
+      awnings: '遮阳篷',
+      balcony: '阳台',
+      balconies: '阳台',
+      pole: '电线杆',
+      poles: '电线杆',
+      billboard: '广告牌',
+      billboards: '广告牌',
+      road: '道路',
+      roads: '道路',
+      street: '街道',
+      streets: '街道',
+      lane: '车道',
+      lanes: '车道',
+      pavement: '人行道',
+      sidewalk: '人行道',
+      sidewalks: '人行道',
+      tunnel: '隧道',
+      tunnels: '隧道',
+      roundabout: '环岛',
+      roundabouts: '环岛',
+      parking: '停车场',
+      'parking meter': '停车计时器',
+      'parking meters': '停车计时器',
+      flower: '花',
+      flowers: '花',
+      plant: '植物',
+      plants: '植物',
+      statue: '雕像',
+      statues: '雕像',
+      animal: '动物',
+      animals: '动物',
+      dog: '狗',
+      dogs: '狗',
+      cat: '猫',
+      cats: '猫',
+      bird: '鸟',
+      birds: '鸟',
+      person: '人',
+      people: '人',
+      pedestrian: '行人',
+      pedestrians: '行人',
+    };
+    return dictionary[normalized] || value;
+  }
+
+  function translatePrompt(rawText) {
+    const text = normalizePrompt(rawText);
+    if (!text) return '';
+    const selectAllMatch = text.match(/^select all images with (.+)$/i);
+    if (selectAllMatch) return `请选择所有包含「${nounToZh(selectAllMatch[1])}」的图片`;
+    const clickAllMatch = text.match(/^click on all images containing (.+)$/i);
+    if (clickAllMatch) return `请点击所有包含「${nounToZh(clickAllMatch[1])}」的图片`;
+    const selectSquareMatch = text.match(/^select all squares with (.+)$/i);
+    if (selectSquareMatch) return `请选择所有包含「${nounToZh(selectSquareMatch[1])}」的方格`;
+    const verifyMatch = text.match(/^verify$/i);
+    if (verifyMatch) return '验证';
+    return `题目提示：${text}`;
+  }
+
+  function ensureStyle() {
+    if (document.getElementById('geo-captcha-translate-style')) return;
+    const style = document.createElement('style');
+    style.id = 'geo-captcha-translate-style';
+    style.textContent = `
+      .${LABEL_CLASS} {
+        margin-top: 6px;
+        font-size: 12px;
+        line-height: 1.4;
+        color: #0d47a1;
+        font-weight: 600;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function renderTranslations() {
+    const promptNodes = PROMPT_SELECTORS.flatMap(selector => [...document.querySelectorAll(selector)]);
+    for (const node of promptNodes) {
+      const prompt = normalizePrompt(node.textContent || node.innerText);
+      if (!prompt) continue;
+      const translated = translatePrompt(prompt);
+      if (!translated) continue;
+      let label = node.parentElement?.querySelector(`:scope > .${LABEL_CLASS}`);
+      if (!label) {
+        label = document.createElement('div');
+        label.className = LABEL_CLASS;
+        node.parentElement?.appendChild(label);
+      }
+      label.textContent = translated;
+    }
+  }
+
+  function clearTranslations() {
+    document.querySelectorAll(`.${LABEL_CLASS}`).forEach(node => node.remove());
+    observer?.disconnect();
+    observer = null;
+  }
+
+  async function init() {
+    const data = await safeGetGeoData();
+    if (data?.settings?.captchaPromptTranslate === false) {
+      clearTranslations();
+      return;
+    }
+    ensureStyle();
+    renderTranslations();
+    observer?.disconnect();
+    observer = new MutationObserver(() => renderTranslations());
+    observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+  }
+
+  return { init };
+})();
+
 if (chrome?.runtime?.id) {
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === 'getFields') {
@@ -803,11 +1022,13 @@ if (chrome?.runtime?.id) {
 
 quickFill.init().catch(error => console.warn('GEOCopilot: quick fill init failed', error));
 pageQuickRail.init().catch(error => console.warn('GEOCopilot: page quick rail init failed', error));
+captchaPromptTranslator.init().catch(error => console.warn('GEOCopilot: captcha translation init failed', error));
 
 if (chrome?.storage?.onChanged) {
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local' || !changes.geoData) return;
     quickFill.init().catch(error => console.warn('GEOCopilot: quick fill refresh failed', error));
     pageQuickRail.init().catch(error => console.warn('GEOCopilot: page quick rail refresh failed', error));
+    captchaPromptTranslator.init().catch(error => console.warn('GEOCopilot: captcha translation refresh failed', error));
   });
 }

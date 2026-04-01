@@ -81,11 +81,45 @@ function buildSeoRecord(site, fillSource = 'unknown') {
   };
 }
 
+function mergeSeoRecord(baseRecord, incomingRecord) {
+  const base = baseRecord || {};
+  const incoming = incomingRecord || {};
+  const incomingAt = Date.parse(incoming.lastRecordedAt || '') || 0;
+  const baseAt = Date.parse(base.lastRecordedAt || '') || 0;
+  const newer = incomingAt >= baseAt ? incoming : base;
+  const older = incomingAt >= baseAt ? base : incoming;
+  return {
+    ...older,
+    ...newer,
+    domain: newer.domain || older.domain || 'unknown',
+    fillCount: (Number(base.fillCount) || 0) + (Number(incoming.fillCount) || 0),
+    clickCount: clampClickCount((Number(base.clickCount) || 0) + (Number(incoming.clickCount) || 0)),
+    lastRecordedAt: newer.lastRecordedAt || older.lastRecordedAt || new Date().toISOString(),
+  };
+}
+
+function dedupeSeoRecords(records) {
+  const map = new Map();
+  for (const item of records || []) {
+    if (!item) continue;
+    const domain = safeHostname(`https://${item.domain || 'unknown'}`);
+    const normalized = {
+      ...item,
+      domain,
+      fillCount: Number(item.fillCount) || 0,
+      clickCount: clampClickCount(item.clickCount),
+      lastRecordedAt: item.lastRecordedAt || new Date().toISOString(),
+    };
+    map.set(domain, map.has(domain) ? mergeSeoRecord(map.get(domain), normalized) : normalized);
+  }
+  return Array.from(map.values());
+}
+
 async function updateSeoCsvRecord(mutator) {
   if (!chrome?.runtime?.id) return;
   const data = await safeGetGeoData() || {};
   const records = Array.isArray(data.seoCsvRecords) ? [...data.seoCsvRecords] : [];
-  const nextRecords = mutator(records);
+  const nextRecords = dedupeSeoRecords(mutator(records));
   await chrome.storage.local.set({
     geoData: {
       ...data,
@@ -98,7 +132,7 @@ async function recordSeoFillEvent(site, fillSource, filled = 0) {
   if (!site || filled <= 0) return;
   const domain = safeHostname(location.href);
   await updateSeoCsvRecord(records => {
-    const index = records.findIndex(item => item?.domain === domain && item?.siteUrl === (site.url || ''));
+    const index = records.findIndex(item => item?.domain === domain);
     const now = new Date().toISOString();
     if (index === -1) {
       const record = buildSeoRecord(site, fillSource);
